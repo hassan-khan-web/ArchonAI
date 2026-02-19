@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U archon -d archon_db"]
+      test: [ "CMD-SHELL", "pg_isready -U archon -d archon_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -25,6 +25,53 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: archon_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://archon:password@db:5432/archon_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev_secret_key_123
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: archon_worker
+    command: celery -A app.core.celery_app worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - backend
+      - redis
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://archon:password@db:5432/archon_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev_secret_key_123
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: archon_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
