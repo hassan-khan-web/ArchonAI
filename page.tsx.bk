@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from "react";
 
+import { fetchAPI } from "@/lib/api";
+
 export default function Home() {
     const [status, setStatus] = useState<string>("Checking API...");
 
     useEffect(() => {
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/`)
-            .then((res) => res.json())
+        fetchAPI("/")
             .then((data) => setStatus(data.message))
-            .catch(() => setStatus("API Disconnected"));
+            .catch((err) => setStatus(`Error: ${err.message}`));
     }, []);
 
     return (
