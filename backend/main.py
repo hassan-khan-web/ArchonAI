@@ -1,13 +1,21 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from app.db.session import engine, Base
+# Import all models so they are registered with Base.metadata
+from app.models.repository import Repository 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Connect to DB, etc.
+    # Startup: Create tables
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
-    # Shutdown: Disconnect, etc.
+    # Shutdown
 
 app = FastAPI(title="ArchonAI API", version="0.1.0", lifespan=lifespan)
+
+from app.api.api import api_router
+app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

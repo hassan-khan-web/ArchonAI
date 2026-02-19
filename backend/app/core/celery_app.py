@@ -9,7 +9,8 @@ REDIS_URL = os.getenv("REDIS_URL")
 celery_app = Celery(
     "archon_worker",
     broker=REDIS_URL,
-    backend=REDIS_URL
+    backend=REDIS_URL,
+    include=["app.worker.tasks"]
 )
 
 celery_app.conf.update(
