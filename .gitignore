@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+
+# Node
+node_modules/
+.next/
+dist/
+coverage/
+
+# IDE
+.idea/
+.vscode/
+*.swp
