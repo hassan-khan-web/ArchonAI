@@ -2,9 +2,31 @@ import asyncio
 import subprocess
 import os
 from sqlalchemy.future import select
+from celery.signals import worker_process_init
 from app.core.celery_app import celery_app
 from app.models.repository import Repository, RepositoryStatus
-from app.db.session import AsyncSessionLocal
+from app.db.session import AsyncSessionLocal, engine
+
+@worker_process_init.connect
+def init_worker(**kwargs):
+    """
+    Called when a new worker process starts (prefork).
+    We dispose of the engine inherited from the parent process
+    to ensure each child starts with its own fresh pool.
+    """
+    import asyncio
+    try:
+        # Use sync dispose for the engine pool if possible, but for asyncpg/asyncio
+        # it's safer to just let the pool be recreated on first use in the child.
+        # SQLAlchemy's engine.dispose() is actually async for AsyncEngine.
+        # Since this signal is sync, we use a small bridge.
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.ensure_future(engine.dispose())
+        else:
+            asyncio.run(engine.dispose())
+    except Exception as e:
+        print(f"Error disposing engine in worker init: {e}")
 
 async def update_status(repo_id, status, local_path=None):
     async with AsyncSessionLocal() as session:
