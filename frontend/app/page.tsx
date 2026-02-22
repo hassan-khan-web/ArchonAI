@@ -8,6 +8,29 @@ interface Repository {
   name: string | null;
   status: "pending" | "cloning" | "completed" | "failed";
   local_path: string | null;
+  analysis_results?: {
+    static_scan: {
+      stack: string[];
+      standards: {
+        has_readme: boolean;
+        has_gitignore: boolean;
+        has_docker: boolean;
+        has_ci_cd: boolean;
+      };
+      testing: {
+        detected: boolean;
+        frameworks: string[];
+      };
+    };
+    structural_evaluation: {
+      patterns_detected: string[];
+      modularity_score: number;
+      concerns_separation: string;
+    };
+    architectural_critique: string;
+    score_breakdown: Record<string, number>;
+  };
+  overall_score: number;
   created_at: string;
 }
 
@@ -145,14 +168,14 @@ export default function Home() {
 
           <div className="flex flex-col gap-2 items-end">
             <div className={`group flex items-center gap-3 px-4 py-2.5 rounded-2xl border transition-all duration-500 bg-slate-900/50 backdrop-blur-md ${backendStatus === "connected" ? "border-emerald-500/20" :
-                backendStatus === "checking" ? "border-amber-500/20" : "border-rose-500/20"
+              backendStatus === "checking" ? "border-amber-500/20" : "border-rose-500/20"
               }`}>
               <div className={`h-2 w-2 rounded-full shadow-[0_0_8px] ${backendStatus === "connected" ? "bg-emerald-400 shadow-emerald-400" :
-                  backendStatus === "checking" ? "bg-amber-400 shadow-amber-400 animate-bounce" : "bg-rose-400 shadow-rose-400 shadow-rose-500/50"
+                backendStatus === "checking" ? "bg-amber-400 shadow-amber-400 animate-bounce" : "bg-rose-400 shadow-rose-400 shadow-rose-500/50"
                 }`} />
               <div className="flex flex-col">
                 <span className={`text-[10px] uppercase font-black tracking-widest ${backendStatus === "connected" ? "text-emerald-400" :
-                    backendStatus === "checking" ? "text-amber-400" : "text-rose-400"
+                  backendStatus === "checking" ? "text-amber-400" : "text-rose-400"
                   }`}>
                   {backendStatus === "connected" ? "Link Primary" : backendStatus === "checking" ? "Syncing..." : "Link Severed"}
                 </span>
@@ -250,8 +273,8 @@ export default function Home() {
             </form>
 
             <div className={`mt-auto p-6 rounded-[1.5rem] border transition-all duration-500 min-h-[80px] flex items-center gap-5 ${submitStatus.type === "success" ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400" :
-                submitStatus.type === "error" ? "bg-rose-500/5 border-rose-500/20 text-rose-400" :
-                  submitStatus.type === "loading" ? "bg-blue-500/5 border-blue-500/20 text-blue-400" : "bg-slate-900 border-slate-800 text-slate-500 italic text-xs"
+              submitStatus.type === "error" ? "bg-rose-500/5 border-rose-500/20 text-rose-400" :
+                submitStatus.type === "loading" ? "bg-blue-500/5 border-blue-500/20 text-blue-400" : "bg-slate-900 border-slate-800 text-slate-500 italic text-xs"
               }`}>
               {submitStatus.type === "idle" ? (
                 <>Ready for Ingestion...</>
@@ -291,33 +314,62 @@ export default function Home() {
                 </div>
               ) : (
                 repositories.map((repo) => (
-                  <div key={repo.id} className="group p-6 rounded-[2rem] bg-black/40 border border-slate-800/50 hover:border-slate-600 transition-all duration-300 flex items-center justify-between gap-6">
-                    <div className="flex-1 min-w-0 flex items-center gap-5">
-                      <div className="h-12 w-12 rounded-2xl bg-slate-800/50 flex items-center justify-center shrink-0 border border-slate-700/50">
-                        <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                        </svg>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-mono text-[13px] text-white truncate font-bold mb-1">{repo.url.replace("https://", "")}</p>
-                        <div className="flex items-center gap-3">
-                          <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">ID: {repo.id.slice(0, 8)}</span>
-                          <span className="h-1 w-1 bg-slate-800 rounded-full" />
-                          <span className="text-[9px] text-slate-600 font-black">{new Date(repo.created_at).toLocaleDateString()}</span>
+                  <div key={repo.id} className="flex flex-col gap-0 group">
+                    <div className="p-6 rounded-t-[2rem] bg-black/40 border border-slate-800/50 hover:border-slate-600 transition-all duration-300 flex items-center justify-between gap-6">
+                      <div className="flex-1 min-w-0 flex items-center gap-5">
+                        <div className="h-12 w-12 rounded-2xl bg-slate-800/50 flex items-center justify-center shrink-0 border border-slate-700/50 relative">
+                          <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                          </svg>
+                          {repo.status === "completed" && (
+                            <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-blue-600 text-[10px] font-black flex items-center justify-center border-2 border-black">
+                              {repo.overall_score}
+                            </div>
+                          )}
                         </div>
+                        <div className="min-w-0">
+                          <p className="font-mono text-[13px] text-white truncate font-bold mb-1">{repo.url.replace("https://", "")}</p>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest text-blue-400">{repo.analysis_results?.static_scan?.stack?.[0] || 'Analyzing...'}</span>
+                            <span className="h-1 w-1 bg-slate-800 rounded-full" />
+                            <span className="text-[9px] text-slate-600 font-black">{new Date(repo.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-3">
+                        <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${getStatusBadge(repo.status)}`}>
+                          {repo.status}
+                        </div>
+                        {repo.status === "cloning" && (
+                          <div className="w-16 h-1 bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-sky-500 animate-loading-bar" />
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-3">
-                      <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${getStatusBadge(repo.status)}`}>
-                        {repo.status}
-                      </div>
-                      {repo.status === "cloning" && (
-                        <div className="w-16 h-1 bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-sky-500 animate-loading-bar" />
+                    {repo.status === "completed" && repo.analysis_results && (
+                      <div className="p-6 bg-slate-900/40 border-x border-b border-slate-800/50 rounded-b-[2rem] space-y-4 animate-in fade-in slide-in-from-top-2">
+                        <div className="flex flex-wrap gap-2">
+                          {repo.analysis_results.static_scan.stack.map(s => (
+                            <span key={s} className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-bold text-slate-400 capitalize">{s}</span>
+                          ))}
+                          {repo.analysis_results.static_scan.standards.has_docker && <span className="px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-[9px] font-bold text-blue-400">Dockerized</span>}
+                          {repo.analysis_results.static_scan.testing.detected && <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-bold text-emerald-400">Tested</span>}
                         </div>
-                      )}
-                    </div>
+
+                        <div className="p-4 rounded-xl bg-black/40 border border-slate-800/50">
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <span className="h-1.5 w-1.5 bg-blue-500 rounded-full shadow-[0_0_8px_blue]" />
+                            Senior Architect Critique
+                          </h4>
+                          <p className="text-xs text-slate-400 leading-relaxed italic border-l-2 border-slate-700 pl-4 py-1">
+                            "{repo.analysis_results.architectural_critique}"
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))
               )}

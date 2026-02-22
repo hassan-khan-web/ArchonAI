@@ -6,6 +6,7 @@ from celery.signals import worker_process_init
 from app.core.celery_app import celery_app
 from app.models.repository import Repository, RepositoryStatus
 from app.db.session import AsyncSessionLocal, engine
+from app.core.analyzer import RepositoryAnalyzer
 
 @worker_process_init.connect
 def init_worker(**kwargs):
@@ -28,7 +29,7 @@ def init_worker(**kwargs):
     except Exception as e:
         print(f"Error disposing engine in worker init: {e}")
 
-async def update_status(repo_id, status, local_path=None):
+async def update_status(repo_id, status, local_path=None, analysis_results=None, overall_score=0):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Repository).where(Repository.id == repo_id))
         repo = result.scalars().first()
@@ -36,6 +37,9 @@ async def update_status(repo_id, status, local_path=None):
             repo.status = status
             if local_path:
                 repo.local_path = local_path
+            if analysis_results:
+                repo.analysis_results = analysis_results
+                repo.overall_score = overall_score
             await session.commit()
 
 @celery_app.task
@@ -70,24 +74,21 @@ def clone_repository(repo_id, url):
         # git clone <url> <target_dir>
         subprocess.check_call(["git", "clone", url, target_dir])
         
-        # 3. Basic Analysis
-        file_count = 0
-        extensions = {}
-        for root, dirs, files in os.walk(target_dir):
-            if ".git" in root:
-                continue
-            for file in files:
-                file_count += 1
-                ext = os.path.splitext(file)[1].lower()
-                extensions[ext] = extensions.get(ext, 0) + 1
+        # 3. Enhanced Analysis
+        analyzer = RepositoryAnalyzer(target_dir)
+        analysis_results = analyzer.analyze()
         
-        analysis_summary = f"Files: {file_count}, Languages: {extensions}"
-        print(f"Analysis for {repo_id}: {analysis_summary}")
+        print(f"Analysis for {repo_id}: Score {analysis_results.get('overall_score')}")
 
         # 4. Update to COMPLETED
-        # We could store analysis_summary in a new column, but for now just logging it.
-        asyncio.run(update_status(repo_id, RepositoryStatus.COMPLETED, local_path=target_dir))
-        return f"Successfully cloned {url} to {target_dir}. {analysis_summary}"
+        asyncio.run(update_status(
+            repo_id, 
+            RepositoryStatus.COMPLETED, 
+            local_path=target_dir,
+            analysis_results=analysis_results,
+            overall_score=analysis_results.get("overall_score", 0)
+        ))
+        return f"Successfully analyzed {url}. Score: {analysis_results.get('overall_score')}"
 
     except Exception as e:
         print(f"Error cloning repository {url}: {e}")

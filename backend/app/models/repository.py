@@ -1,6 +1,6 @@
 import uuid
 import enum
-from sqlalchemy import Column, String, Enum, DateTime, func
+from sqlalchemy import Column, String, Enum, DateTime, func, JSON, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.session import Base
 
@@ -18,4 +18,6 @@ class Repository(Base):
     name = Column(String, nullable=True)
     status = Column(Enum(RepositoryStatus), default=RepositoryStatus.PENDING, nullable=False)
     local_path = Column(String, nullable=True)
+    analysis_results = Column(JSON, nullable=True)
+    overall_score = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

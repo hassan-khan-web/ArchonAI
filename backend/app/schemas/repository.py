@@ -25,6 +25,8 @@ class RepositoryResponse(RepositoryBase):
     name: Optional[str] = None
     status: RepositoryStatus
     local_path: Optional[str] = None
+    analysis_results: Optional[dict] = None
+    overall_score: int = 0
     created_at: datetime
     # Return URL as string for easier serialization
     url: str 
