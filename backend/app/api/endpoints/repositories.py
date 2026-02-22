@@ -21,18 +21,21 @@ async def create_repository(
     """
     # Check if exists
     result = await db.execute(select(Repository).where(Repository.url == str(repo_in.url)))
-    existing = result.scalars().first()
-    if existing:
-        return existing
-
-    # Create new repo record
-    repo = Repository(
-        url=str(repo_in.url),
-        status=RepositoryStatus.PENDING
-    )
-    db.add(repo)
-    await db.commit()
-    await db.refresh(repo)
+    repo = result.scalars().first()
+    
+    if repo:
+        # If it exists, reset status and re-trigger
+        repo.status = RepositoryStatus.PENDING
+        await db.commit()
+    else:
+        # Create new repo record
+        repo = Repository(
+            url=str(repo_in.url),
+            status=RepositoryStatus.PENDING
+        )
+        db.add(repo)
+        await db.commit()
+        await db.refresh(repo)
 
     # Trigger background task
     # We pass ID and URL as simple types (UUID -> str if needed, but Celery handles UUID usually)
