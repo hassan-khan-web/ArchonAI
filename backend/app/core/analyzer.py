@@ -133,33 +133,7 @@ class RepositoryAnalyzer:
         if not static.get("testing", {}).get("detected"):
             critique_list.append("No automated tests detected. This is a significant risk for production readiness.")
         if struct.get("concerns_separation") == "Low (Monolithic)":
-            critique_list.append("Project structure appears monolithic.### 🎓 Refined Maturity Grading System
-The score is no longer just a number; it's a graded evaluation:
-
-*   **0–40 (Basic)**: Minimal structure, missing essential infra.
-*   **41–65 (Intermediate)**: Solid foundation with some standard patterns.
-*   **66–85 (Production)**: Ready for deployment with tests and CI/CD.
-*   **86–100 (Enterprise)**: The Gold Standard of architectural excellence.
-
-### 📊 Persistent Maturity Scoring
-Each repository now receives a **Maturity Label** and an **Overall Maturity Score (0-100)** based on weighted criteria:
-*   **Infrastructure (30 pts)**: Docker and CI/CD presence.
-*   **Standards & Tests (30 pts)**: README, .gitignore, and automated tests.
-*   **Architecture & Modularity (40 pts)**: Recognized patterns and structural modularity.
-
-## Verification: "Flux" Repository Analysis
-
-I re-built and re-ran the ingestion for the `Flux` repository to verify the refined pipeline.
-
-**Analysis Summary (from DB):**
-*   **Maturity Grade**: `Intermediate (Score: 65)`
-*   **Score Breakdown**: Infrastructure (30/30), Standards & Tests (30/30), Architecture (5/40).
-*   **Tech Stack**: `Node.js`, `Python`, `FastAPI`
-*   **Architectural Critique**: *"The architecture follows industry best practices. It is modular, containerized, and includes testing infrastructure."*
-
-## UI Updates
-The "Diagnostic Feed" in the frontend now features **color-coded badges** (e.g., Emerald for Production, Rose for Basic) next to the repository names, providing an instant visual maturity assessment.
-")
+            critique_list.append("Project structure appears monolithic. Consider extracting business logic into a dedicated service layer.")
         if not stds.get("has_ci_cd"):
             critique_list.append("CI/CD workflows are missing. Automating builds and tests is recommended.")
             
