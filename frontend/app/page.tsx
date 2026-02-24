@@ -28,6 +28,7 @@ interface Repository {
       concerns_separation: string;
     };
     architectural_critique: string;
+    maturity_label: string;
     score_breakdown: Record<string, number>;
   };
   overall_score: number;
@@ -139,6 +140,16 @@ export default function Home() {
       case "pending": return "bg-amber-500/10 text-amber-400 border-amber-500/20";
       case "failed": return "bg-rose-500/10 text-rose-400 border-rose-500/20";
       default: return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+    }
+  };
+
+  const getMaturityColor = (label: string) => {
+    switch (label?.toLowerCase()) {
+      case "enterprise": return "text-amber-400 border-amber-500/30 bg-amber-500/5";
+      case "production": return "text-emerald-400 border-emerald-500/30 bg-emerald-500/5";
+      case "intermediate": return "text-blue-400 border-blue-500/30 bg-blue-500/5";
+      case "basic": return "text-rose-400 border-rose-500/30 bg-rose-500/5";
+      default: return "text-slate-400 border-slate-500/30 bg-slate-500/5";
     }
   };
 
@@ -322,13 +333,23 @@ export default function Home() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                           </svg>
                           {repo.status === "completed" && (
-                            <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-blue-600 text-[10px] font-black flex items-center justify-center border-2 border-black">
+                            <div className={`absolute -top-2 -right-2 h-7 w-7 rounded-full text-[10px] font-black flex items-center justify-center border-2 border-slate-900 shadow-xl ${repo.overall_score >= 86 ? "bg-amber-500 text-black" :
+                              repo.overall_score >= 66 ? "bg-emerald-500 text-black" :
+                                repo.overall_score >= 41 ? "bg-blue-500 text-white" : "bg-rose-500 text-white"
+                              }`}>
                               {repo.overall_score}
                             </div>
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-mono text-[13px] text-white truncate font-bold mb-1">{repo.url.replace("https://", "")}</p>
+                          <div className="flex items-center gap-3 mb-1">
+                            <p className="font-mono text-[13px] text-white truncate font-bold">{repo.url.replace("https://", "")}</p>
+                            {repo.analysis_results?.maturity_label && (
+                              <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border ${getMaturityColor(repo.analysis_results.maturity_label)}`}>
+                                {repo.analysis_results.maturity_label}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-3">
                             <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest text-blue-400">{repo.analysis_results?.static_scan?.stack?.[0] || 'Analyzing...'}</span>
                             <span className="h-1 w-1 bg-slate-800 rounded-full" />

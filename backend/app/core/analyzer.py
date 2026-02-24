@@ -8,6 +8,7 @@ class RepositoryAnalyzer:
         self.structural_findings: Dict[str, Any] = {}
         self.critique: str = ""
         self.overall_score: int = 0
+        self.maturity_label: str = ""
         self.score_breakdown: Dict[str, int] = {}
 
     def analyze(self) -> Dict[str, Any]:
@@ -22,6 +23,7 @@ class RepositoryAnalyzer:
             "structural_evaluation": self.structural_findings,
             "architectural_critique": self.critique,
             "overall_score": self.overall_score,
+            "maturity_label": self.maturity_label,
             "score_breakdown": self.score_breakdown
         }
 
@@ -131,7 +133,33 @@ class RepositoryAnalyzer:
         if not static.get("testing", {}).get("detected"):
             critique_list.append("No automated tests detected. This is a significant risk for production readiness.")
         if struct.get("concerns_separation") == "Low (Monolithic)":
-            critique_list.append("Project structure appears monolithic. Consider extracting business logic into a dedicated service layer.")
+            critique_list.append("Project structure appears monolithic.### 🎓 Refined Maturity Grading System
+The score is no longer just a number; it's a graded evaluation:
+
+*   **0–40 (Basic)**: Minimal structure, missing essential infra.
+*   **41–65 (Intermediate)**: Solid foundation with some standard patterns.
+*   **66–85 (Production)**: Ready for deployment with tests and CI/CD.
+*   **86–100 (Enterprise)**: The Gold Standard of architectural excellence.
+
+### 📊 Persistent Maturity Scoring
+Each repository now receives a **Maturity Label** and an **Overall Maturity Score (0-100)** based on weighted criteria:
+*   **Infrastructure (30 pts)**: Docker and CI/CD presence.
+*   **Standards & Tests (30 pts)**: README, .gitignore, and automated tests.
+*   **Architecture & Modularity (40 pts)**: Recognized patterns and structural modularity.
+
+## Verification: "Flux" Repository Analysis
+
+I re-built and re-ran the ingestion for the `Flux` repository to verify the refined pipeline.
+
+**Analysis Summary (from DB):**
+*   **Maturity Grade**: `Intermediate (Score: 65)`
+*   **Score Breakdown**: Infrastructure (30/30), Standards & Tests (30/30), Architecture (5/40).
+*   **Tech Stack**: `Node.js`, `Python`, `FastAPI`
+*   **Architectural Critique**: *"The architecture follows industry best practices. It is modular, containerized, and includes testing infrastructure."*
+
+## UI Updates
+The "Diagnostic Feed" in the frontend now features **color-coded badges** (e.g., Emerald for Production, Rose for Basic) next to the repository names, providing an instant visual maturity assessment.
+")
         if not stds.get("has_ci_cd"):
             critique_list.append("CI/CD workflows are missing. Automating builds and tests is recommended.")
             
@@ -141,31 +169,49 @@ class RepositoryAnalyzer:
             self.critique = " ".join(critique_list)
 
     def _calculate_final_score(self):
-        """Calculate a weighted maturity score (0-100)."""
+        """Calculate a weighted maturity score (0-100) and assign a grade."""
         static = self.static_findings
         struct = self.structural_findings
         stds = static.get("standards", {})
         
         score = 0
-        # Static Layer (40 points)
-        if stds.get("has_readme"): score += 5
-        if stds.get("has_gitignore"): score += 5
-        if stds.get("has_docker"): score += 15
-        if stds.get("has_ci_cd"): score += 10
-        if static.get("testing", {}).get("detected"): score += 5
+        # 1. Infrastructure (30 pts)
+        infra_score = 0
+        if stds.get("has_docker"): infra_score += 15
+        if stds.get("has_ci_cd"): infra_score += 15
+        score += infra_score
         
-        # Structural Layer (40 points)
-        mod_score = struct.get("modularity_score", 0)
-        score += (mod_score * 0.4)
+        # 2. Standards & Tests (30 pts)
+        standards_score = 0
+        if stds.get("has_readme"): standards_score += 5
+        if stds.get("has_gitignore"): standards_score += 5
+        if static.get("testing", {}).get("detected"): standards_score += 20
+        score += standards_score
         
-        # Qualitative Adjustment (20 points)
-        if len(static.get("stack", [])) > 1: score += 10
-        if len(struct.get("patterns_detected", [])) >= 2: score += 10
+        # 3. Architecture & Modularity (40 pts)
+        arch_score = 0
+        # Patterns detected (up to 30)
+        patterns = struct.get("patterns_detected", [])
+        arch_score += min(30, len(patterns) * 10)
+        # Modularity heuristic (10 pts)
+        mod_val = struct.get("modularity_score", 0)
+        arch_score += (mod_val / 100) * 10
+        score += arch_score
 
         self.overall_score = min(100, int(score))
+        
+        # Assign Maturity Label
+        if self.overall_score <= 40:
+            self.maturity_label = "Basic"
+        elif self.overall_score <= 65:
+            self.maturity_label = "Intermediate"
+        elif self.overall_score <= 85:
+            self.maturity_label = "Production"
+        else:
+            self.maturity_label = "Enterprise"
+
         self.score_breakdown = {
-             "infrastructure": 15 if stds.get("has_docker") else 0,
-             "testing": 5 if static.get("testing", {}).get("detected") else 0,
-             "modularity": int(mod_score * 0.4),
-             "standards": 10 if (stds.get("has_readme") and stds.get("has_gitignore")) else 0
+             "infrastructure": infra_score,
+             "standards_tests": standards_score,
+             "architecture": int(arch_score)
         }
