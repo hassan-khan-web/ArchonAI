@@ -19,3 +19,5 @@ coverage/
 
 # App Data
 backend/repos/
+current_project_status.txt
+future_plan.txt

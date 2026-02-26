@@ -12,7 +12,7 @@ if not DATABASE_URL:
 
 from sqlalchemy.pool import NullPool
 
-engine = create_async_engine(DATABASE_URL, echo=True, poolclass=NullPool)
+engine = create_async_engine(DATABASE_URL, echo=False, poolclass=NullPool)
 AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 async def dispose_engine():

@@ -12,8 +12,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="/root/.local/bin:$PATH"
+RUN pip install --no-cache-dir poetry
 
 # Install poetry-plugin-export
 RUN poetry self add poetry-plugin-export

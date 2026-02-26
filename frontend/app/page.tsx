@@ -1,7 +1,38 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  LayoutDashboard,
+  Library,
+  Activity,
+  Settings,
+  PlusCircle,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  GitBranch,
+  ShieldCheck,
+  Zap,
+  ChevronRight,
+  Database,
+  Terminal,
+  Container,
+  Trello,
+  Maximize2,
+  Minimize2,
+  X,
+  ExternalLink,
+  MoreVertical,
+  Filter,
+  RefreshCw,
+  Cpu,
+  Layers,
+  Sparkles
+} from "lucide-react";
 
+// --- Types ---
 interface Repository {
   id: string;
   url: string;
@@ -11,12 +42,7 @@ interface Repository {
   analysis_results?: {
     static_scan: {
       stack: string[];
-      standards: {
-        has_readme: boolean;
-        has_gitignore: boolean;
-        has_docker: boolean;
-        has_ci_cd: boolean;
-      };
+      standards: Record<string, boolean>;
       testing: {
         detected: boolean;
         frameworks: string[];
@@ -30,90 +56,56 @@ interface Repository {
     architectural_critique: string;
     maturity_label: string;
     score_breakdown: Record<string, number>;
+    actionable_roadmap: {
+      title: string;
+      description: string;
+      action: string;
+      guide: string;
+    }[];
   };
   overall_score: number;
   created_at: string;
 }
 
-export default function Home() {
-  // --- Connectivity State & Diagnostics ---
-  const [backendStatus, setBackendStatus] = useState<"checking" | "connected" | "disconnected">("checking");
-  const [backendMessage, setBackendMessage] = useState("");
-  const [apiUrl, setApiUrl] = useState(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
-  const [isUrlOverridden, setIsUrlOverridden] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
+type ViewType = "dashboard" | "fleet" | "activity" | "settings";
 
-  const addLog = useCallback((msg: string) => {
-    setLogs(prev => [new Date().toLocaleTimeString() + ": " + msg, ...prev].slice(0, 5));
-  }, []);
-
+export default function Dashboard() {
   // --- App State ---
-  const [repoUrl, setRepoUrl] = useState("");
-  const [submitStatus, setSubmitStatus] = useState<{ type: "idle" | "loading" | "success" | "error"; message: string }>({ type: "idle", message: "" });
+  const [view, setView] = useState<ViewType>("dashboard");
   const [repositories, setRepositories] = useState<Repository[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
+  const [repoUrl, setRepoUrl] = useState("");
+  const [isSubmitLoading, setIsSubmitLoading] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<"checking" | "connected" | "disconnected">("checking");
+  const [apiUrl] = useState(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
 
-  const checkConnectivity = useCallback(async (testUrl: string) => {
-    setBackendStatus("checking");
-    addLog(`Testing connection to ${testUrl}...`);
+  const selectedRepo = useMemo(() =>
+    repositories.find(r => r.id === selectedRepoId) || null,
+    [repositories, selectedRepoId]);
+
+  // --- Data Fetching ---
+  const fetchRepositories = useCallback(async () => {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
-
-      const res = await fetch(`${testUrl}/`, {
-        signal: controller.signal,
-        cache: 'no-store'
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        setBackendStatus("connected");
-        setBackendMessage(data.message || "Deep Link Established");
-        addLog("✅ Success: Backend reached cleanly.");
-        return true;
-      }
-    } catch (error: any) {
-      addLog(`❌ Error: ${error.name === "AbortError" ? "Request timed out" : "Network reachability failure"}`);
-      setBackendStatus("disconnected");
-      setBackendMessage("Connection Refused");
-    }
-    return false;
-  }, [addLog]);
-
-  const fetchRepositories = useCallback(async (targetUrl: string) => {
-    setIsRefreshing(true);
-    try {
-      const res = await fetch(`${targetUrl}/api/v1/repositories/`, { cache: 'no-store' });
+      const res = await fetch(`${apiUrl}/api/v1/repositories/`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setRepositories(data);
-        if (backendStatus !== "connected") {
-          setBackendStatus("connected");
-          setBackendMessage("Sync Established");
-        }
+        setBackendStatus("connected");
       }
     } catch (error) {
-      console.error("Failed to fetch repositories:", error);
-    } finally {
-      setIsRefreshing(false);
+      setBackendStatus("disconnected");
     }
-  }, [backendStatus]);
+  }, [apiUrl]);
 
   useEffect(() => {
-    checkConnectivity(apiUrl);
-    fetchRepositories(apiUrl);
-
-    const interval = setInterval(() => {
-      fetchRepositories(apiUrl);
-    }, 5000);
-
+    fetchRepositories();
+    const interval = setInterval(fetchRepositories, 5000);
     return () => clearInterval(interval);
-  }, [apiUrl, checkConnectivity, fetchRepositories]);
+  }, [fetchRepositories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitStatus({ type: "loading", message: "Initialing project ingestion..." });
+    setIsSubmitLoading(true);
     try {
       const res = await fetch(`${apiUrl}/api/v1/repositories/`, {
         method: "POST",
@@ -121,306 +113,423 @@ export default function Home() {
         body: JSON.stringify({ url: repoUrl }),
       });
       if (res.ok) {
-        setSubmitStatus({ type: "success", message: "Vault ingestion protocol started successfully." });
         setRepoUrl("");
-        fetchRepositories(apiUrl);
-      } else {
-        const errorData = await res.json();
-        setSubmitStatus({ type: "error", message: `Protocol Error: ${errorData.detail || "Access Denied"}` });
+        fetchRepositories();
       }
-    } catch (error) {
-      setSubmitStatus({ type: "error", message: "Critical: Backend communication failed." });
+    } finally {
+      setIsSubmitLoading(false);
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "completed": return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-      case "cloning": return "bg-sky-500/10 text-sky-400 border-sky-500/20";
-      case "pending": return "bg-amber-500/10 text-amber-400 border-amber-500/20";
-      case "failed": return "bg-rose-500/10 text-rose-400 border-rose-500/20";
-      default: return "bg-slate-500/10 text-slate-400 border-slate-500/20";
-    }
-  };
+  // --- Stats Calculation ---
+  const stats = useMemo(() => {
+    const total = repositories.length;
+    const completed = repositories.filter(r => r.status === "completed").length;
+    const avgScore = completed > 0
+      ? Math.round(repositories.reduce((acc, curr) => acc + (curr.overall_score || 0), 0) / completed)
+      : 0;
+    const productionGrade = repositories.filter(r => r.analysis_results?.maturity_label === "Production" || r.analysis_results?.maturity_label === "Enterprise").length;
 
-  const getMaturityColor = (label: string) => {
-    switch (label?.toLowerCase()) {
-      case "enterprise": return "text-amber-400 border-amber-500/30 bg-amber-500/5";
-      case "production": return "text-emerald-400 border-emerald-500/30 bg-emerald-500/5";
-      case "intermediate": return "text-blue-400 border-blue-500/30 bg-blue-500/5";
-      case "basic": return "text-rose-400 border-rose-500/30 bg-rose-500/5";
-      default: return "text-slate-400 border-slate-500/30 bg-slate-500/5";
-    }
-  };
+    return { total, completed, avgScore, productionGrade };
+  }, [repositories]);
 
   return (
-    <div className="min-h-screen bg-[#070A14] text-slate-200 selection:bg-sky-500/30 font-sans selection:text-white overflow-x-hidden">
-      {/* Mesh Background Effects */}
-      <div className="fixed inset-0 pointer-events-none opacity-20">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600 blur-[120px] rounded-full animate-pulse" />
-        <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[50%] bg-purple-600 blur-[150px] rounded-full" />
+    <div className="flex h-screen bg-[#05070a] text-slate-300 font-sans overflow-hidden">
+      {/* Background Gradients */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full" />
       </div>
 
-      <main className="relative z-10 max-w-7xl mx-auto px-6 py-12 lg:py-20 flex flex-col gap-12 lg:gap-20">
-
-        {/* Navigation Bar */}
-        <nav className="flex flex-col md:flex-row items-center justify-between gap-6 px-4">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-xl shadow-blue-900/40">
-              <svg viewBox="0 0 24 24" className="w-6 h-6 text-white fill-current">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-xl font-black tracking-tight text-white uppercase">ArchonAI</h2>
-              <span className="text-[10px] text-slate-500 font-mono tracking-[0.2em] uppercase">Ingestion Core v1.0</span>
-            </div>
+      {/* --- Sidebar --- */}
+      <aside className="w-20 lg:w-64 flex flex-col border-r border-slate-800/50 bg-[#070912]/80 backdrop-blur-xl z-20 transition-all">
+        <div className="p-6 mb-8 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-900/40 shrink-0">
+            <Cpu className="text-white w-6 h-6" />
           </div>
-
-          <div className="flex flex-col gap-2 items-end">
-            <div className={`group flex items-center gap-3 px-4 py-2.5 rounded-2xl border transition-all duration-500 bg-slate-900/50 backdrop-blur-md ${backendStatus === "connected" ? "border-emerald-500/20" :
-              backendStatus === "checking" ? "border-amber-500/20" : "border-rose-500/20"
-              }`}>
-              <div className={`h-2 w-2 rounded-full shadow-[0_0_8px] ${backendStatus === "connected" ? "bg-emerald-400 shadow-emerald-400" :
-                backendStatus === "checking" ? "bg-amber-400 shadow-amber-400 animate-bounce" : "bg-rose-400 shadow-rose-400 shadow-rose-500/50"
-                }`} />
-              <div className="flex flex-col">
-                <span className={`text-[10px] uppercase font-black tracking-widest ${backendStatus === "connected" ? "text-emerald-400" :
-                  backendStatus === "checking" ? "text-amber-400" : "text-rose-400"
-                  }`}>
-                  {backendStatus === "connected" ? "Link Primary" : backendStatus === "checking" ? "Syncing..." : "Link Severed"}
-                </span>
-                <span className="text-[11px] text-slate-500 font-mono">{apiUrl.replace("http://", "")}</span>
-              </div>
-              <button
-                onClick={() => setIsUrlOverridden(!isUrlOverridden)}
-                className="ml-2 p-1.5 hover:bg-white/5 rounded-lg transition-colors text-slate-600 hover:text-white"
-                title="Toggle Diagnostics"
-              >
-                <svg viewBox="0 0 20 20" className="w-4 h-4 fill-current"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
-              </button>
-            </div>
-
-            {isUrlOverridden && (
-              <div className="absolute top-24 right-6 z-50 w-80 flex flex-col gap-3 p-5 bg-slate-900 border border-slate-700 backdrop-blur-2xl rounded-[1.5rem] shadow-3xl animate-in fade-in slide-in-from-top-2">
-                <div className="flex justify-between items-center">
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Network Diagnostic</p>
-                  <button onClick={() => setLogs([])} className="text-[10px] text-blue-500 hover:underline">Clear</button>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={apiUrl}
-                    onChange={(e) => setApiUrl(e.target.value)}
-                    className="flex-1 bg-black border border-slate-800 px-3 py-2 rounded-xl text-xs font-mono outline-none focus:border-blue-500"
-                  />
-                  <button onClick={() => checkConnectivity(apiUrl)} className="px-4 py-2 bg-blue-600 rounded-xl text-[10px] font-black uppercase hover:bg-blue-700 transition-colors">Retest</button>
-                </div>
-                <div className="mt-2 space-y-1.5 max-h-40 overflow-y-auto">
-                  {logs.length === 0 ? (
-                    <p className="text-[10px] font-mono text-slate-600 italic">Listening for events...</p>
-                  ) : (
-                    logs.map((log, i) => (
-                      <p key={i} className="text-[10px] font-mono text-slate-500 leading-relaxed border-l border-slate-800 pl-3">{log}</p>
-                    ))
-                  )}
-                </div>
-                <div className="pt-2 border-t border-slate-800 text-[9px] text-slate-600">
-                  Tip: If disconnected, try 127.0.0.1:8000 instead of localhost:8000.
-                </div>
-              </div>
-            )}
+          <div className="hidden lg:block">
+            <h1 className="text-lg font-black tracking-tighter text-white uppercase">Archon</h1>
+            <span className="text-[10px] text-slate-500 font-mono tracking-widest uppercase">Intel Core v2</span>
           </div>
+        </div>
+
+        <nav className="flex-1 px-4 space-y-2">
+          <NavItem active={view === "dashboard"} onClick={() => setView("dashboard")} icon={<LayoutDashboard size={20} />} label="Dashboard" />
+          <NavItem active={view === "fleet"} onClick={() => setView("fleet")} icon={<Library size={20} />} label="Project Fleet" />
+          <NavItem active={view === "activity"} onClick={() => setView("activity")} icon={<Activity size={20} />} label="Activity" />
+          <NavItem active={view === "settings"} onClick={() => setView("settings")} icon={<Settings size={20} />} label="Settings" />
         </nav>
 
-        {/* Hero Branding */}
-        <section className="flex flex-col items-center text-center max-w-4xl mx-auto space-y-8 mt-10">
-          <div className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] animate-in slide-in-from-bottom-2">
-            Engineering Maturity Engine
+        <div className="p-4 border-t border-slate-800/50">
+          <div className={`flex items-center gap-3 p-3 rounded-2xl bg-slate-900/50 border transition-colors ${backendStatus === "connected" ? "border-emerald-500/20" : "border-rose-500/20"}`}>
+            <div className={`h-2 w-2 rounded-full ${backendStatus === "connected" ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_emerald]" : "bg-rose-400 shadow-[0_0_8px_rose]"}`} />
+            <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">
+              {backendStatus === "connected" ? "Node Online" : "Node Offline"}
+            </span>
           </div>
-          <h1 className="text-6xl md:text-8xl font-black text-white leading-[1.0] tracking-tighter">
-            Architect the <br />
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500">Unstoppable.</span>
-          </h1>
-          <p className="text-xl text-slate-400 leading-relaxed max-w-2xl font-medium">
-            Analyze, evaluate, and upgrade your software repositories with the world's most intelligent architecture auditing platform.
-          </p>
-        </section>
+        </div>
+      </aside>
 
-        {/* Action Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch pt-10">
-
-          {/* Form Card */}
-          <div className="lg:col-span-5 flex flex-col gap-10 p-10 bg-gradient-to-b from-slate-900/60 to-slate-900/20 border border-slate-800/50 backdrop-blur-2xl rounded-[3rem] shadow-2xl group transition-all duration-500 hover:border-slate-700/50">
-            <div className="space-y-3">
-              <h3 className="text-3xl font-black text-white tracking-tight">Initiate Scan</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">Submit your GitHub repository URL for deep architectural analysis.</p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-              <div className="relative group">
-                <input
-                  type="url"
-                  placeholder="https://github.com/namespace/project"
-                  className="w-full px-6 py-6 rounded-[1.5rem] bg-black border border-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder-slate-700 text-sm font-medium pr-16"
-                  value={repoUrl}
-                  onChange={(e) => setRepoUrl(e.target.value)}
-                  required
-                />
-                <div className="absolute right-5 top-1/2 -translate-y-1/2 text-blue-500 opacity-50">
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
-                  </svg>
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={submitStatus.type === "loading"}
-                className="relative overflow-hidden group w-full bg-white text-black font-black py-6 rounded-[1.5rem] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                <span className="relative z-10">{submitStatus.type === "loading" ? "Processing Signal..." : "Deploy Scanner"}</span>
-                <div className="absolute inset-0 bg-blue-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300 pointer-events-none" />
-              </button>
-            </form>
-
-            <div className={`mt-auto p-6 rounded-[1.5rem] border transition-all duration-500 min-h-[80px] flex items-center gap-5 ${submitStatus.type === "success" ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400" :
-              submitStatus.type === "error" ? "bg-rose-500/5 border-rose-500/20 text-rose-400" :
-                submitStatus.type === "loading" ? "bg-blue-500/5 border-blue-500/20 text-blue-400" : "bg-slate-900 border-slate-800 text-slate-500 italic text-xs"
-              }`}>
-              {submitStatus.type === "idle" ? (
-                <>Ready for Ingestion...</>
-              ) : (
-                <>
-                  <div className="shrink-0 font-black text-xl">
-                    {submitStatus.type === "success" ? "✓" : submitStatus.type === "error" ? "!" : "◈"}
-                  </div>
-                  <p className="text-sm font-bold leading-tight">{submitStatus.message}</p>
-                </>
-              )}
-            </div>
+      {/* --- Main Section --- */}
+      <main className="flex-1 flex flex-col relative z-10 overflow-hidden">
+        {/* Top Header */}
+        <header className="h-20 border-b border-slate-800/50 flex items-center justify-between px-8 bg-[#070912]/50 backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-500 capitalize">{view}</span>
+            <ChevronRight size={14} className="text-slate-700" />
+            <span className="text-xs font-bold text-white uppercase tracking-widest">Main Canvas</span>
           </div>
 
-          {/* Monitoring Feed */}
-          <div className="lg:col-span-7 flex flex-col gap-10 p-10 bg-slate-900/30 border border-slate-800/50 backdrop-blur-xl rounded-[1.5rem] shadow-2xl relative">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Diagnostic Feed</h3>
-                <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">{repositories.length} Active Modules</p>
-              </div>
-              <div className={`flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 ${isRefreshing ? "animate-pulse" : ""}`}>
-                <div className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-ping" />
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live</span>
-              </div>
+          <div className="flex items-center gap-6">
+            <div className="relative hidden md:block">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
+              <input type="text" placeholder="Search projects..." className="bg-slate-900/50 border border-slate-800 rounded-xl px-10 py-2 text-xs outline-none focus:border-blue-500/50 transition-colors w-64" />
             </div>
+            <button className="h-10 px-4 bg-white text-black font-black text-[11px] uppercase rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/5 flex items-center gap-2">
+              <PlusCircle size={16} />
+              <span>Deploy Analysis</span>
+            </button>
+          </div>
+        </header>
 
-            <div className="flex flex-col gap-4 overflow-y-auto max-h-[500px] pr-2 custom-scrollbar">
-              {repositories.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center py-24 text-slate-700 space-y-6">
-                  <div className="w-24 h-24 rounded-full border border-slate-800/50 flex items-center justify-center relative">
-                    <svg className="w-10 h-10 opacity-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm font-black uppercase tracking-widest opacity-50">Awaiting Ingestion Signal</p>
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+          <AnimatePresence mode="wait">
+            {view === "dashboard" && (
+              <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
+                {/* Stats Ribbon */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <StatCard icon={<Layers className="text-blue-400" />} label="Monitored Repos" value={stats.total} detail="+2 this week" />
+                  <StatCard icon={<Cpu className="text-purple-400" />} label="Analysis Mean" value={`${stats.avgScore}%`} detail="Health Index" />
+                  <StatCard icon={<ShieldCheck className="text-emerald-400" />} label="Production Ready" value={stats.productionGrade} detail="Maturity Alpha" />
+                  <StatCard icon={<RefreshCw className="text-amber-400" />} label="Active Tasks" value={repositories.filter(r => r.status === "cloning").length} detail="Syncing modules" />
                 </div>
-              ) : (
-                repositories.map((repo) => (
-                  <div key={repo.id} className="flex flex-col gap-0 group">
-                    <div className="p-6 rounded-t-[2rem] bg-black/40 border border-slate-800/50 hover:border-slate-600 transition-all duration-300 flex items-center justify-between gap-6">
-                      <div className="flex-1 min-w-0 flex items-center gap-5">
-                        <div className="h-12 w-12 rounded-2xl bg-slate-800/50 flex items-center justify-center shrink-0 border border-slate-700/50 relative">
-                          <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                          </svg>
-                          {repo.status === "completed" && (
-                            <div className={`absolute -top-2 -right-2 h-7 w-7 rounded-full text-[10px] font-black flex items-center justify-center border-2 border-slate-900 shadow-xl ${repo.overall_score >= 86 ? "bg-amber-500 text-black" :
-                              repo.overall_score >= 66 ? "bg-emerald-500 text-black" :
-                                repo.overall_score >= 41 ? "bg-blue-500 text-white" : "bg-rose-500 text-white"
-                              }`}>
-                              {repo.overall_score}
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-3 mb-1">
-                            <p className="font-mono text-[13px] text-white truncate font-bold">{repo.url.replace("https://", "")}</p>
-                            {repo.analysis_results?.maturity_label && (
-                              <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border ${getMaturityColor(repo.analysis_results.maturity_label)}`}>
-                                {repo.analysis_results.maturity_label}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest text-blue-400">{repo.analysis_results?.static_scan?.stack?.[0] || 'Analyzing...'}</span>
-                            <span className="h-1 w-1 bg-slate-800 rounded-full" />
-                            <span className="text-[9px] text-slate-600 font-black">{new Date(repo.created_at).toLocaleDateString()}</span>
-                          </div>
+
+                {/* Sub-Header */}
+                <div className="flex items-end justify-between">
+                  <div>
+                    <h2 className="text-3xl font-black text-white tracking-tight">System Overview</h2>
+                    <p className="text-slate-500 text-sm">Real-time status of your engineering fleet.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-[10px] font-black uppercase text-slate-400 hover:text-white transition-colors">7 Days</button>
+                    <button className="px-3 py-1.5 rounded-lg bg-blue-600 border border-blue-500 text-[10px] font-black uppercase text-white shadow-lg shadow-blue-900/20">30 Days</button>
+                  </div>
+                </div>
+
+                {/* Main Action Card */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                  <div className="lg:col-span-8 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {repositories.slice(0, 4).map(repo => (
+                        <RepoCardSmall key={repo.id} repo={repo} onClick={() => setSelectedRepoId(repo.id)} />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* New Project Form (Quick-Access) */}
+                  <div className="lg:col-span-4 p-8 rounded-[2rem] bg-gradient-to-br from-indigo-900/20 to-blue-900/10 border border-slate-800/50 backdrop-blur-xl space-y-6">
+                    <div className="h-12 w-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center">
+                      <Zap className="text-blue-400" size={24} />
+                    </div>
+                    <h3 className="text-xl font-black text-white uppercase tracking-tighter">Quick Deploy</h3>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <input
+                        type="url"
+                        placeholder="Git Repo URL"
+                        value={repoUrl}
+                        onChange={(e) => setRepoUrl(e.target.value)}
+                        className="w-full bg-black/40 border border-slate-800 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-500 transition-all"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        disabled={isSubmitLoading}
+                        className="w-full py-3 bg-blue-600 rounded-xl text-xs font-black uppercase text-white hover:bg-blue-500 transition-all disabled:opacity-50"
+                      >
+                        {isSubmitLoading ? "Initializing..." : "Engage Ingestion"}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {view === "fleet" && (
+              <motion.div key="fleet" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-3xl font-black text-white tracking-tight uppercase">Fleet Status</h2>
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
+                      <select className="bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-4 py-1.5 text-[10px] font-black uppercase outline-none focus:border-blue-500 appearance-none">
+                        <option>All Stacks</option>
+                        <option>Production Only</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {repositories.map(repo => (
+                    <RepoCardDetailed key={repo.id} repo={repo} onClick={() => setSelectedRepoId(repo.id)} />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
+
+      {/* --- Detail Overlay (Drawer) --- */}
+      <AnimatePresence>
+        {selectedRepoId && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedRepoId(null)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 20, stiffness: 100 }}
+              className="fixed right-0 top-0 h-full w-full max-w-2xl bg-[#0a0d18] border-l border-slate-800 z-50 shadow-2xl overflow-y-auto custom-scrollbar"
+            >
+              {selectedRepo && (
+                <div className="flex flex-col h-full">
+                  <div className="p-8 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-[#0a0d18]/90 backdrop-blur-md z-10">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                        <GitBranch className="text-blue-400" size={24} />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black text-white truncate max-w-xs">{selectedRepo.url.split("/").pop()}</h2>
+                        <p className="text-[10px] text-slate-500 font-mono italic">{selectedRepo.id}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setSelectedRepoId(null)} className="h-10 w-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center hover:bg-slate-800 transition-colors">
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  <div className="p-8 space-y-12">
+                    {/* Score Circle Section */}
+                    <div className="flex items-center gap-12 bg-white/5 p-8 rounded-[2.5rem] border border-white/10 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/20 blur-3xl rounded-full" />
+                      <div className="relative h-32 w-32 shrink-0">
+                        <svg className="h-full w-full translate-x-1" viewBox="0 0 100 100">
+                          <circle className="text-slate-800" strokeWidth="6" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
+                          <circle className="text-blue-500" strokeWidth="6" strokeDasharray={251.2} strokeDashoffset={251.2 - (251.2 * selectedRepo.overall_score) / 100} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-3xl font-black text-white">{selectedRepo.overall_score}</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Pts</span>
                         </div>
                       </div>
-
-                      <div className="flex flex-col items-end gap-3">
-                        <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${getStatusBadge(repo.status)}`}>
-                          {repo.status}
-                        </div>
-                        {repo.status === "cloning" && (
-                          <div className="w-16 h-1 bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-sky-500 animate-loading-bar" />
-                          </div>
-                        )}
+                      <div className="space-y-2">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${getMaturityColor(selectedRepo.analysis_results?.maturity_label || "")}`}>
+                          {selectedRepo.analysis_results?.maturity_label || "Unknown"} Grade
+                        </span>
+                        <h3 className="text-2xl font-black text-white">Engineering Maturity</h3>
+                        <p className="text-xs text-slate-400 leading-relaxed italic">The score is calculated based on infrastructure, testing, and architectural modularity.</p>
                       </div>
                     </div>
 
-                    {repo.status === "completed" && repo.analysis_results && (
-                      <div className="p-6 bg-slate-900/40 border-x border-b border-slate-800/50 rounded-b-[2rem] space-y-4 animate-in fade-in slide-in-from-top-2">
+                    {/* Stack & Critique */}
+                    <div className="grid grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                          <Layers size={14} className="text-blue-400" /> Technology Stack
+                        </h4>
                         <div className="flex flex-wrap gap-2">
-                          {repo.analysis_results.static_scan.stack.map(s => (
-                            <span key={s} className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-bold text-slate-400 capitalize">{s}</span>
+                          {selectedRepo.analysis_results?.static_scan.stack.map(s => (
+                            <span key={s} className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-slate-300">{s}</span>
                           ))}
-                          {repo.analysis_results.static_scan.standards.has_docker && <span className="px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-[9px] font-bold text-blue-400">Dockerized</span>}
-                          {repo.analysis_results.static_scan.testing.detected && <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-bold text-emerald-400">Tested</span>}
                         </div>
+                      </div>
+                      <div className="space-y-4">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                          <Zap size={14} className="text-amber-400" /> Patterns Detected
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedRepo.analysis_results?.structural_evaluation.patterns_detected.map(p => (
+                            <span key={p} className="px-3 py-1 bg-amber-500/5 border border-amber-500/10 rounded-lg text-xs font-bold text-amber-400">{p}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
 
-                        <div className="p-4 rounded-xl bg-black/40 border border-slate-800/50">
-                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <span className="h-1.5 w-1.5 bg-blue-500 rounded-full shadow-[0_0_8px_blue]" />
-                            Senior Architect Critique
-                          </h4>
-                          <p className="text-xs text-slate-400 leading-relaxed italic border-l-2 border-slate-700 pl-4 py-1">
-                            "{repo.analysis_results.architectural_critique}"
-                          </p>
+                    <div className="space-y-4 bg-slate-900/50 p-6 rounded-2xl border border-slate-800">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                        <Sparkles size={14} className="text-purple-400" /> Architect Critique
+                      </h4>
+                      <p className="text-sm text-slate-300 leading-relaxed italic border-l-2 border-slate-700 pl-4">
+                        "{selectedRepo.analysis_results?.architectural_critique}"
+                      </p>
+                    </div>
+
+                    {/* Roadmap Section */}
+                    {selectedRepo.analysis_results?.actionable_roadmap && selectedRepo.analysis_results.actionable_roadmap.length > 0 && (
+                      <div className="space-y-6">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400 border-b border-blue-500/20 pb-2">Actionable Roadmap</h4>
+                        <div className="space-y-4">
+                          {selectedRepo.analysis_results.actionable_roadmap.map((step, idx) => (
+                            <div key={idx} className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-4 border-l-4 border-l-blue-600">
+                              <div className="flex items-center justify-between">
+                                <h5 className="font-black text-white uppercase text-sm tracking-tighter">{step.title}</h5>
+                                <span className="text-[10px] font-bold text-slate-600">PHASE {idx + 1}</span>
+                              </div>
+                              <p className="text-xs text-slate-400 leading-relaxed">{step.description}</p>
+                              <div className="bg-emerald-500/5 border border-emerald-500/10 p-3 rounded-lg flex gap-3">
+                                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                                <p className="text-xs text-emerald-400 font-bold">{step.action}</p>
+                              </div>
+                              <div className="bg-black/40 p-3 rounded-lg border border-white/5">
+                                <code className="text-[10px] text-blue-300 font-mono">{step.guide}</code>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
                   </div>
-                ))
+
+                  <div className="p-8 border-t border-slate-800 mt-auto bg-[#0a0d18]/90 backdrop-blur-md">
+                    <button className="w-full py-4 bg-white text-black font-black uppercase text-sm rounded-2xl shadow-xl shadow-white/5 active:scale-95 transition-all">Download PDF Report</button>
+                  </div>
+                </div>
               )}
-            </div>
-          </div>
-        </div>
-      </main>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <style jsx global>{`
-        @keyframes loading-bar {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-        .animate-loading-bar {
-          animation: loading-bar 1.5s infinite linear;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 5px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #1e293b;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #334155;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
       `}</style>
     </div>
   );
 }
+
+// --- Internal Components ---
+
+function NavItem({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center lg:gap-4 p-3 rounded-2xl transition-all duration-300 relative group overflow-hidden ${active ? "bg-blue-600 text-white shadow-lg shadow-blue-900/20" : "text-slate-500 hover:text-white hover:bg-white/5"}`}
+    >
+      <span className="shrink-0">{icon}</span>
+      <span className="text-[11px] font-black uppercase tracking-widest hidden lg:block relative z-10">{label}</span>
+      {!active && <div className="absolute inset-0 bg-blue-600 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300 opacity-20 pointer-events-none" />}
+    </button>
+  );
+}
+
+function StatCard({ icon, label, value, detail }: { icon: React.ReactNode, label: string, value: string | number, detail: string }) {
+  return (
+    <div className="p-6 rounded-[2rem] bg-slate-900/40 border border-slate-800/50 hover:border-slate-700 transition-all group backdrop-blur-sm">
+      <div className="flex items-center justify-between mb-4">
+        <div className="p-2 rounded-lg bg-slate-800 border border-slate-700/50">{icon}</div>
+        <div className="h-1.5 w-1.5 rounded-full bg-slate-700 group-hover:bg-blue-400 transition-colors" />
+      </div>
+      <div className="space-y-1">
+        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</h4>
+        <p className="text-2xl font-black text-white">{value}</p>
+        <p className="text-[10px] text-slate-600 font-bold">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function RepoCardSmall({ repo, onClick }: { repo: Repository, onClick: () => void }) {
+  return (
+    <div
+      onClick={onClick}
+      className="p-5 rounded-3xl bg-black border border-slate-800/50 hover:border-blue-500/30 transition-all group cursor-pointer active:scale-95"
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className={`h-8 w-8 rounded-xl flex items-center justify-center border-2 border-[#05070a] shadow-lg ${repo.overall_score >= 66 ? "bg-emerald-500" : "bg-blue-500"}`}>
+            <span className="text-[10px] font-black text-black">{repo.overall_score}</span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-black text-white truncate max-w-[120px] uppercase tracking-tighter">{repo.url.split("/").pop()}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] text-slate-600 font-bold">{repo.analysis_results?.static_scan.stack?.[0] || "Analysis"}</span>
+              <span className="h-1 w-1 bg-slate-800 rounded-full" />
+              <span className="text-[9px] text-slate-700 underline">{repo.status}</span>
+            </div>
+          </div>
+        </div>
+        <div className="h-8 w-8 rounded-lg bg-slate-900 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <Maximize2 size={12} className="text-slate-400" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RepoCardDetailed({ repo, onClick }: { repo: Repository, onClick: () => void }) {
+  return (
+    <div
+      onClick={onClick}
+      className="group relative p-8 rounded-[3rem] bg-slate-900/30 border border-slate-800/50 hover:border-slate-700/50 flex flex-col gap-6 cursor-pointer active:scale-[0.98] transition-all"
+    >
+      <div className="flex items-start justify-between">
+        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 flex items-center justify-center relative">
+          <Terminal size={24} className="text-blue-400" />
+          {repo.status === "completed" && (
+            <div className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white text-black text-[10px] font-black flex items-center justify-center border-4 border-[#05070a] z-10">
+              {repo.overall_score}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-1.5">
+          {repo.analysis_results?.static_scan.standards.has_docker && <Container size={14} className="text-blue-500" />}
+          {repo.analysis_results?.static_scan.testing.detected && <ShieldCheck size={14} className="text-emerald-500" />}
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <h3 className="text-lg font-black text-white truncate uppercase tracking-tighter">{repo.url.split("/").pop()}</h3>
+        <p className="text-[10px] text-slate-500 font-mono truncate">{repo.url.replace("https://", "")}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 pt-2">
+        {repo.analysis_results?.static_scan.stack.slice(0, 3).map(s => (
+          <span key={s} className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[8px] font-black uppercase text-slate-500">{s}</span>
+        ))}
+      </div>
+
+      <div className="mt-auto pt-6 flex items-center justify-between border-t border-slate-800/50">
+        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border ${getMaturityColor(repo.analysis_results?.maturity_label || "")}`}>
+          {repo.analysis_results?.maturity_label || "Pending"}
+        </span>
+        <span className="text-[10px] font-black text-slate-700 uppercase">{repo.status}</span>
+      </div>
+
+      {/* Hover Glow */}
+      <div className="absolute inset-x-12 bottom-0 h-1 bg-blue-600 blur-sm scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+    </div>
+  );
+}
+
+// --- Utils ---
+
+const getMaturityColor = (label: string) => {
+  switch (label?.toLowerCase()) {
+    case "enterprise": return "text-amber-400 border-amber-500/30 bg-amber-500/5";
+    case "production": return "text-emerald-400 border-emerald-500/30 bg-emerald-500/5";
+    case "intermediate": return "text-blue-400 border-blue-500/30 bg-blue-500/5";
+    case "basic": return "text-rose-400 border-rose-500/30 bg-rose-500/5";
+    default: return "text-slate-400 border-slate-500/30 bg-slate-500/5";
+  }
+};
