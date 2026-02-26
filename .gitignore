@@ -21,3 +21,4 @@ coverage/
 backend/repos/
 current_project_status.txt
 future_plan.txt
+.git_corrupted/
