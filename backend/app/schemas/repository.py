@@ -27,6 +27,7 @@ class RepositoryResponse(RepositoryBase):
     local_path: Optional[str] = None
     analysis_results: Optional[dict] = None
     overall_score: int = 0
+    logs: Optional[list] = None
     created_at: datetime
     # Return URL as string for easier serialization
     url: str 

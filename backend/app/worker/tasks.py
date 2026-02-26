@@ -29,7 +29,7 @@ def init_worker(**kwargs):
     except Exception as e:
         print(f"Error disposing engine in worker init: {e}")
 
-async def update_status(repo_id, status, local_path=None, analysis_results=None, overall_score=0):
+async def update_status(repo_id, status, local_path=None, analysis_results=None, overall_score=0, log_message=None):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Repository).where(Repository.id == repo_id))
         repo = result.scalars().first()
@@ -40,6 +40,12 @@ async def update_status(repo_id, status, local_path=None, analysis_results=None,
             if analysis_results:
                 repo.analysis_results = analysis_results
                 repo.overall_score = overall_score
+            if log_message:
+                if repo.logs is None: repo.logs = []
+                # Append log message
+                new_logs = list(repo.logs)
+                new_logs.append(log_message)
+                repo.logs = new_logs
             await session.commit()
 
 @celery_app.task
@@ -71,11 +77,20 @@ def clone_repository(repo_id, url):
             shutil.rmtree(target_dir)
 
         # Run git clone
-        # git clone <url> <target_dir>
         subprocess.check_call(["git", "clone", url, target_dir])
         
-        # 3. Enhanced Analysis
-        analyzer = RepositoryAnalyzer(target_dir)
+        # 3. Enhanced Analysis with live logging
+        def on_analysis_progress(msg):
+            try:
+                # We need to run the async update in a sync context
+                # Since we are in a thread/process, we use a new loop or the existing one
+                asyncio.run(update_status(repo_id, RepositoryStatus.CLONING, log_message=msg))
+            except Exception as e:
+                print(f"Failed to log progress: {e}")
+
+        asyncio.run(update_status(repo_id, RepositoryStatus.CLONING, log_message="System: Repository cloned. Starting analysis engine..."))
+        
+        analyzer = RepositoryAnalyzer(target_dir, on_progress=on_analysis_progress)
         analysis_results = analyzer.analyze()
         
         print(f"Analysis for {repo_id}: Score {analysis_results.get('overall_score')}")
@@ -86,7 +101,8 @@ def clone_repository(repo_id, url):
             RepositoryStatus.COMPLETED, 
             local_path=target_dir,
             analysis_results=analysis_results,
-            overall_score=analysis_results.get("overall_score", 0)
+            overall_score=analysis_results.get("overall_score", 0),
+            log_message="System: Analysis complete. All reports finalized."
         ))
         return f"Successfully analyzed {url}. Score: {analysis_results.get('overall_score')}"
 

@@ -69,9 +69,19 @@ interface Repository {
       file: string;
       description: string;
     }[];
+    structured_critique?: {
+      executive_summary: string;
+      technical_debt: {
+        area: string;
+        issue: string;
+        impact: string;
+      }[];
+      architect_persona: string;
+    };
   };
   overall_score: number;
   created_at: string;
+  logs?: string[];
 }
 
 type ViewType = "dashboard" | "fleet" | "activity" | "settings";
@@ -352,6 +362,41 @@ export default function Dashboard() {
                       </div>
                     </div>
 
+                    {/* Contextual Status / Thinking Log (NEW) */}
+                    {(selectedRepo.status === "cloning" || selectedRepo.status === "pending") && (
+                      <div className="p-6 rounded-3xl bg-blue-600/5 border border-blue-500/20 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <RefreshCw size={16} className="text-blue-400 animate-spin" />
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400">Engine Thinking...</h4>
+                        </div>
+                        <div className="space-y-2 max-h-40 overflow-y-auto font-mono text-[9px] text-slate-400 custom-scrollbar">
+                          {(selectedRepo.logs || []).map((log, idx) => (
+                            <div key={idx} className="flex gap-2">
+                              <span className="text-slate-600 shrink-0">[{new Date().toLocaleTimeString()}]</span>
+                              <span className="text-blue-300">{log}</span>
+                            </div>
+                          ))}
+                          {(!selectedRepo.logs || selectedRepo.logs.length === 0) && (
+                            <p className="italic">Waiting for analysis phases to initiate...</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Stats Ribbon (Quick Look) */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block mb-1">Maturity Score</span>
+                        <span className="text-2xl font-black text-white">{selectedRepo.overall_score}%</span>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block mb-1">Engineering Grade</span>
+                        <span className={`text-xs font-black uppercase ${getMaturityColor(selectedRepo.analysis_results?.maturity_label || "")}`}>
+                          {selectedRepo.analysis_results?.maturity_label || "Pending"}
+                        </span>
+                      </div>
+                    </div>
+
                     {/* Stack & Critique */}
                     <div className="grid grid-cols-2 gap-8">
                       <div className="space-y-4">
@@ -376,13 +421,51 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="space-y-4 bg-slate-900/50 p-6 rounded-2xl border border-slate-800">
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                        <Sparkles size={14} className="text-purple-400" /> Architect Critique
-                      </h4>
-                      <p className="text-sm text-slate-300 leading-relaxed italic border-l-2 border-slate-700 pl-4">
-                        "{selectedRepo.analysis_results?.architectural_critique}"
-                      </p>
+                    {/* Architect's Brief (NEW) */}
+                    <div className="space-y-6">
+                      <div className="p-6 rounded-3xl bg-gradient-to-br from-blue-600/10 to-purple-600/5 border border-blue-500/20">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-4 flex items-center gap-2">
+                          <Sparkles size={14} /> Executive Summary
+                        </h4>
+                        <p className="text-sm text-white leading-relaxed font-medium">
+                          {selectedRepo.analysis_results?.structured_critique?.executive_summary || selectedRepo.analysis_results?.architectural_critique}
+                        </p>
+                        <div className="mt-4 flex items-center gap-4 pt-4 border-t border-white/5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-500 uppercase tracking-widest">Persona:</span>
+                            <span className="text-[10px] font-black text-white uppercase bg-white/5 px-2 py-0.5 rounded-md">
+                              {selectedRepo.analysis_results?.structured_critique?.architect_persona || "The Pragmatist"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Technical Debt Section */}
+                      {selectedRepo.analysis_results?.structured_critique?.technical_debt && selectedRepo.analysis_results.structured_critique.technical_debt.length > 0 && (
+                        <div className="space-y-4">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
+                            <Activity size={14} /> Technical Debt Audit
+                          </h4>
+                          <div className="grid grid-cols-1 gap-3">
+                            {selectedRepo.analysis_results.structured_critique.technical_debt.map((d, idx) => (
+                              <div key={idx} className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-start gap-4 hover:border-amber-500/30 transition-colors">
+                                <div className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                                  <Layers size={14} className="text-slate-400" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[8px] font-black text-amber-500 uppercase px-1.5 py-0.5 rounded bg-amber-500/10">
+                                      {d.area}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-white uppercase tracking-tight">{d.issue}</span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 leading-snug">{d.impact}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Security Section (NEW) */}

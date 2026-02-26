@@ -1,36 +1,65 @@
 import os
-from typing import Dict, Any, List, Set
+from typing import Dict, Any, List, Set, Optional, Callable
 
 class RepositoryAnalyzer:
-    def __init__(self, repo_path: str):
+    def __init__(self, repo_path: str, on_progress: Optional[Callable[[str], None]] = None):
         self.repo_path = repo_path
+        self.on_progress = on_progress
+        self.repo_id = repo_path.split("/")[-1]
         self.static_findings: Dict[str, Any] = {}
         self.structural_findings: Dict[str, Any] = {}
         self.critique: str = ""
         self.overall_score: int = 0
-        self.maturity_label: str = ""
+        self.maturity_label: str = "Pending"
         self.score_breakdown: Dict[str, int] = {}
         self.roadmap: List[Dict[str, str]] = []
         self.security_findings: List[Dict[str, Any]] = []
+        self.logs: List[str] = []
+        self.structured_critique: Dict[str, Any] = {
+            "executive_summary": "",
+            "technical_debt": [],
+            "architect_persona": "The Pragmatic Senior"
+        }
+
+    def _log(self, message: str):
+        self.logs.append(message)
+        if self.on_progress and callable(self.on_progress):
+            self.on_progress(message)
 
     def analyze(self) -> Dict[str, Any]:
         """Run all analysis layers."""
+        self._log("Phase Alpha: Initiating deep static scan...")
         self._run_layer1_static_scan()
+        
+        self._log("Phase Beta: Evaluating structural modularity and patterns...")
         self._run_layer2_structural_evaluation()
+        
+        self._log("Phase Gamma: Running heuristic architectural audit...")
         self._run_layer3_architectural_critique()
+        
+        self._log("Phase Delta: Auditing security layers and secrets...")
         self._run_layer5_security_scan()
+        
+        self._log("Phase Epsilon: Calculating final engineering maturity...")
         self._calculate_final_score()
+        
+        self._log("Phase Zeta: Generating actionable transformation roadmap...")
         self._run_layer4_actionable_roadmap()
         
+        self._log("Analysis Complete.")
+        
         return {
+            "id": self.repo_path.split("/")[-1],
             "static_scan": self.static_findings,
             "structural_evaluation": self.structural_findings,
             "architectural_critique": self.critique,
+            "structured_critique": self.structured_critique,
             "overall_score": self.overall_score,
             "maturity_label": self.maturity_label,
             "score_breakdown": self.score_breakdown,
             "actionable_roadmap": self.roadmap,
-            "security_findings": self.security_findings
+            "security_findings": self.security_findings,
+            "logs": self.logs
         }
 
     def _run_layer1_static_scan(self):
@@ -163,22 +192,49 @@ class RepositoryAnalyzer:
         """Layer 3: Heuristic-based Senior Architect feedback."""
         static = self.static_findings
         struct = self.structural_findings
-        
-        critique_list = []
         stds = static.get("standards", {})
+        stack = static.get("stack", [])
+        
+        debt = []
+        summary = ""
+        
+        # 1. Evaluate Infrastructure
         if not stds.get("has_docker"):
-            critique_list.append("Missing containerization. Adding a Dockerfile would improve deployment consistency.")
-        if not static.get("testing", {}).get("detected"):
-            critique_list.append("No automated tests detected. This is a significant risk for production readiness.")
-        if struct.get("concerns_separation") == "Low (Monolithic)":
-            critique_list.append("Project structure appears monolithic. Consider extracting business logic into a dedicated service layer.")
+            debt.append({"area": "Infrastructure", "issue": "Missing Containerization", "impact": "Inconsistent deployment environments."})
         if not stds.get("has_ci_cd"):
-            critique_list.append("CI/CD workflows are missing. Automating builds and tests is recommended.")
+            debt.append({"area": "Infrastructure", "issue": "No CI/CD Automation", "impact": "Manual deployments increase risk of human error."})
             
-        if not critique_list:
-            self.critique = "The architecture follows industry best practices. It is modular, containerized, and includes testing infrastructure."
+        # 2. Evaluate Quality
+        if not static.get("testing", {}).get("detected"):
+            debt.append({"area": "Quality", "issue": "Untested Codebase", "impact": "High risk of regressions and deployment failures."})
+            
+        # 3. Evaluate Architecture
+        if struct.get("concerns_separation") == "Low (Monolithic)":
+            debt.append({"area": "Architecture", "issue": "Monolithic Structure", "impact": "Difficulty in scaling and high cognitive load for new developers."})
+
+        # 4. Generate Narrative Summary
+        stack_str = ", ".join(stack[:2])
+        if self.overall_score > 80:
+            summary = f"This {stack_str} project is exceptionally well-structured. The architect has prioritized modularity and infrastructure readiness, making it a benchmark for 'Enterprise' standards."
+        elif self.overall_score > 50:
+            summary = f"A solid {stack_str} baseline is present. While the core patterns are functional, there is significant room to improve deployment consistency and automated testing."
         else:
-            self.critique = " ".join(critique_list)
+            summary = f"This repository is in its early stages. It currently lacks the structural and operational scaffolding required for a stable production environment."
+
+        # Language Specific Nuance
+        if "Go" in stack:
+            summary += " Note: Ensure Go idiomatic patterns like small interfaces are used to keep the codebase decoupled."
+        elif "Python" in stack:
+            summary += " Note: Leveraging Type Hints and a dedicated /services layer would significantly refine the Pythonic architecture."
+        elif "Node.js/NPM" in stack or "React/Next.js" in stack:
+            summary += " Note: Moving towards a 'Bulletproof' architecture with clear domain separation (e.g., /core, /features) is highly recommended for JS/TS stacks."
+
+        self.structured_critique = {
+            "executive_summary": summary,
+            "technical_debt": debt,
+            "architect_persona": "The Pragmatic Senior"
+        }
+        self.critique = summary # Backward compatibility
 
     def _calculate_final_score(self):
         """Calculate a weighted maturity score (0-100) and assign a grade."""

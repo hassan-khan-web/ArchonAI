@@ -20,4 +20,5 @@ class Repository(Base):
     local_path = Column(String, nullable=True)
     analysis_results = Column(JSON, nullable=True)
     overall_score = Column(Integer, default=0)
+    logs = Column(JSON, default=list)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
