@@ -1,5 +1,7 @@
 import os
+import re
 from typing import Dict, Any, List, Set, Optional, Callable
+from app.core.brain import ArchonBrain
 
 class RepositoryAnalyzer:
     def __init__(self, repo_path: str, on_progress: Optional[Callable[[str], None]] = None):
@@ -15,6 +17,8 @@ class RepositoryAnalyzer:
         self.roadmap: List[Dict[str, str]] = []
         self.security_findings: List[Dict[str, Any]] = []
         self.logs: List[str] = []
+        self.brain = ArchonBrain()
+        self.ai_analysis: Dict[str, Any] = {}
         self.structured_critique: Dict[str, Any] = {
             "executive_summary": "",
             "technical_debt": [],
@@ -39,11 +43,14 @@ class RepositoryAnalyzer:
         
         self._log("Phase Delta: Auditing security layers and secrets...")
         self._run_layer5_security_scan()
+
+        self._log("Phase Zeta: Running Deep Semantic Audit (AI Architect)...")
+        self._run_layer6_semantic_analysis()
         
         self._log("Phase Epsilon: Calculating final engineering maturity...")
         self._calculate_final_score()
         
-        self._log("Phase Zeta: Generating actionable transformation roadmap...")
+        self._log("Phase Theta: Generating actionable transformation roadmap...")
         self._run_layer4_actionable_roadmap()
         
         self._log("Analysis Complete.")
@@ -54,6 +61,7 @@ class RepositoryAnalyzer:
             "structural_evaluation": self.structural_findings,
             "architectural_critique": self.critique,
             "structured_critique": self.structured_critique,
+            "ai_analysis": self.ai_analysis,
             "overall_score": self.overall_score,
             "maturity_label": self.maturity_label,
             "score_breakdown": self.score_breakdown,
@@ -444,3 +452,57 @@ class RepositoryAnalyzer:
                                     })
                 except Exception:
                     pass
+
+    def _run_layer6_semantic_analysis(self):
+        """Layer 6: Deep Semantic Analysis using Groq LLM."""
+        if not self.brain.client:
+            self._log("AI Engine skipped (Key missing).")
+            return
+
+        # 1. Collect representative file samples for the LLM
+        samples = []
+        important_extensions = [".py", ".js", ".ts", ".go", ".tf"]
+        important_filenames = ["Dockerfile", "docker-compose.yml", "package.json", "requirements.txt"]
+        
+        for root, _, files in os.walk(self.repo_path):
+            if any(x in root for x in [".git", "node_modules", "__pycache__"]):
+                continue
+            
+            for file in files:
+                is_important = any(file.endswith(ext) for ext in important_extensions) or file in important_filenames
+                if is_important:
+                    file_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(file_path, self.repo_path)
+                    
+                    if len(samples) < 5: 
+                        try:
+                            with open(file_path, 'r', errors='ignore') as f:
+                                content = f.read(2000)
+                                samples.append({"path": rel_path, "content": content})
+                        except:
+                            pass
+
+        # 2. Prepare project context
+        project_context = {
+            "stack": self.static_findings.get("stack", []),
+            "modularity": self.structural_findings.get("modularity_score", 0),
+            "concerns_separation": self.structural_findings.get("concerns_separation", "Unknown"),
+            "standards": self.static_findings.get("standards", {}),
+            "security_findings": self.security_findings
+        }
+
+        # 3. Call Brain
+        self.ai_analysis = self.brain.analyze_repository(project_context, samples)
+
+        # 4. Integrate AI findings into the structured critique if successful
+        if "error" not in self.ai_analysis:
+            self.structured_critique["executive_summary"] = self.ai_analysis.get("executive_summary", self.structured_critique["executive_summary"])
+            if self.ai_analysis.get("technical_debt"):
+                # Append AI debt items
+                self.structured_critique["technical_debt"].extend(self.ai_analysis["technical_debt"])
+            
+            # Retroactively update critique for backward compatibility
+            self.critique = self.structured_critique["executive_summary"]
+            self._log("AI Architect review finalized.")
+        else:
+            self._log(f"AI Warning: {self.ai_analysis['error']}")
