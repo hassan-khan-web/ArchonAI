@@ -62,6 +62,13 @@ interface Repository {
       action: string;
       guide: string;
     }[];
+    security_findings: {
+      type: string;
+      severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+      label: string;
+      file: string;
+      description: string;
+    }[];
   };
   overall_score: number;
   created_at: string;
@@ -126,11 +133,12 @@ export default function Dashboard() {
     const total = repositories.length;
     const completed = repositories.filter(r => r.status === "completed").length;
     const avgScore = completed > 0
-      ? Math.round(repositories.reduce((acc, curr) => acc + (curr.overall_score || 0), 0) / completed)
+      ? Math.round(repositories.reduce((acc, curr) => acc + (curr.overall_score || 0), 0) / repositories.length)
       : 0;
     const productionGrade = repositories.filter(r => r.analysis_results?.maturity_label === "Production" || r.analysis_results?.maturity_label === "Enterprise").length;
+    const totalThreats = repositories.reduce((acc, curr) => acc + (curr.analysis_results?.security_findings?.length || 0), 0);
 
-    return { total, completed, avgScore, productionGrade };
+    return { total, completed, avgScore, productionGrade, totalThreats };
   }, [repositories]);
 
   return (
@@ -202,7 +210,12 @@ export default function Dashboard() {
                   <StatCard icon={<Layers className="text-blue-400" />} label="Monitored Repos" value={stats.total} detail="+2 this week" />
                   <StatCard icon={<Cpu className="text-purple-400" />} label="Analysis Mean" value={`${stats.avgScore}%`} detail="Health Index" />
                   <StatCard icon={<ShieldCheck className="text-emerald-400" />} label="Production Ready" value={stats.productionGrade} detail="Maturity Alpha" />
-                  <StatCard icon={<RefreshCw className="text-amber-400" />} label="Active Tasks" value={repositories.filter(r => r.status === "cloning").length} detail="Syncing modules" />
+                  <StatCard
+                    icon={<AlertCircle className={stats.totalThreats > 0 ? "text-rose-400 animate-pulse" : "text-slate-400"} />}
+                    label="Active Threats"
+                    value={stats.totalThreats}
+                    detail={stats.totalThreats > 0 ? "Action Required" : "Nodes Secured"}
+                  />
                 </div>
 
                 {/* Sub-Header */}
@@ -372,6 +385,30 @@ export default function Dashboard() {
                       </p>
                     </div>
 
+                    {/* Security Section (NEW) */}
+                    {selectedRepo.analysis_results?.security_findings && selectedRepo.analysis_results.security_findings.length > 0 && (
+                      <div className="space-y-6">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-rose-400 flex items-center gap-2">
+                          <AlertCircle size={14} /> Security vulnerabilities detected
+                        </h4>
+                        <div className="space-y-3">
+                          {selectedRepo.analysis_results.security_findings.map((f, idx) => (
+                            <div key={idx} className="p-4 rounded-xl bg-rose-500/5 border border-rose-500/10 flex items-start gap-4">
+                              <div className={`mt-1 shrink-0 h-2 w-2 rounded-full ${f.severity === 'CRITICAL' ? 'bg-rose-500 animate-ping' : 'bg-amber-500'}`} />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[10px] font-black text-rose-400 uppercase tracking-tighter">{f.type}</span>
+                                  <span className="text-[10px] text-slate-600 font-mono">/ {f.file}</span>
+                                </div>
+                                <p className="text-xs font-bold text-white mb-1">{f.label}</p>
+                                <p className="text-[10px] text-slate-400 italic leading-snug">{f.description}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Roadmap Section */}
                     {selectedRepo.analysis_results?.actionable_roadmap && selectedRepo.analysis_results.actionable_roadmap.length > 0 && (
                       <div className="space-y-6">
@@ -495,6 +532,9 @@ function RepoCardDetailed({ repo, onClick }: { repo: Repository, onClick: () => 
         <div className="flex gap-1.5">
           {repo.analysis_results?.static_scan.standards.has_docker && <Container size={14} className="text-blue-500" />}
           {repo.analysis_results?.static_scan.testing.detected && <ShieldCheck size={14} className="text-emerald-500" />}
+          {repo.analysis_results?.security_findings && repo.analysis_results.security_findings.length > 0 && (
+            <AlertCircle size={14} className="text-rose-500 animate-pulse" />
+          )}
         </div>
       </div>
 

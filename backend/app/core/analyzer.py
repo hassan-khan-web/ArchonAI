@@ -11,12 +11,14 @@ class RepositoryAnalyzer:
         self.maturity_label: str = ""
         self.score_breakdown: Dict[str, int] = {}
         self.roadmap: List[Dict[str, str]] = []
+        self.security_findings: List[Dict[str, Any]] = []
 
     def analyze(self) -> Dict[str, Any]:
         """Run all analysis layers."""
         self._run_layer1_static_scan()
         self._run_layer2_structural_evaluation()
         self._run_layer3_architectural_critique()
+        self._run_layer5_security_scan()
         self._calculate_final_score()
         self._run_layer4_actionable_roadmap()
         
@@ -27,7 +29,8 @@ class RepositoryAnalyzer:
             "overall_score": self.overall_score,
             "maturity_label": self.maturity_label,
             "score_breakdown": self.score_breakdown,
-            "actionable_roadmap": self.roadmap
+            "actionable_roadmap": self.roadmap,
+            "security_findings": self.security_findings
         }
 
     def _run_layer1_static_scan(self):
@@ -199,15 +202,21 @@ class RepositoryAnalyzer:
         
         # 3. Architecture & Modularity (40 pts)
         arch_score = 0
-        # Patterns detected (up to 30)
         patterns = struct.get("patterns_detected", [])
         arch_score += min(30, len(patterns) * 10)
-        # Modularity heuristic (10 pts)
         mod_val = struct.get("modularity_score", 0)
         arch_score += (mod_val / 100) * 10
         score += arch_score
 
         self.overall_score = min(100, int(score))
+
+        # 4. Security Penalties
+        security_penalty = 0
+        for find in self.security_findings:
+            if find["severity"] == "CRITICAL": security_penalty += 30
+            if find["severity"] == "HIGH": security_penalty += 15
+        
+        self.overall_score = max(0, self.overall_score - security_penalty)
         
         # Assign Maturity Label
         if self.overall_score <= 40:
@@ -222,7 +231,8 @@ class RepositoryAnalyzer:
         self.score_breakdown = {
              "infrastructure": infra_score,
              "standards_tests": standards_score,
-             "architecture": int(arch_score)
+             "architecture": int(arch_score),
+             "security": -security_penalty
         }
 
     def _run_layer4_actionable_roadmap(self):
@@ -261,6 +271,36 @@ class RepositoryAnalyzer:
                 "guide": "Create a `Dockerfile` using `python:3.11-slim` or `node:20-alpine` as a base."
             })
 
+        # 4. Security Remediation
+        critical_leaks = [f for f in self.security_findings if f["severity"] == "CRITICAL"]
+        if critical_leaks:
+            self.roadmap.insert(0, {
+                "title": "CRITICAL: Secret Rotation",
+                "description": f"Found {len(critical_leaks)} potential hardcoded credentials. These are exposed in Git history.",
+                "action": "Immediately revoke and rotate the affected keys.",
+                "guide": "Rotate leaked credentials and add affected files to `.gitignore` or use Vault/Secrets Manager."
+            })
+
+        high_vulns = [f for f in self.security_findings if f["severity"] == "HIGH"]
+        if high_vulns:
+            # Code Injection
+            if any(v["type"] == "Vulnerability (SAST)" for v in high_vulns):
+                self.roadmap.append({
+                    "title": "Code Injection Hardening",
+                    "description": "SAST scan identified dangerous coding patterns (eval/exec/SQLi).",
+                    "action": "Refactor dynamic code execution to use parameterized inputs or secure alternatives.",
+                    "guide": "Replace `eval()` with safe parsing and use parameterized queries for SQL statements."
+                })
+            
+            # Dependencies
+            if any(v["type"] == "Vulnerable Dependency" for v in high_vulns):
+                self.roadmap.append({
+                    "title": "Standardize Dependencies",
+                    "description": "One or more packages in your manifest have known vulnerabilities.",
+                    "action": "Audit and upgrade core dependencies to stable, patched versions.",
+                    "guide": "Run `pip install --upgrade requests flask` or `npm update` to resolve CVEs."
+                })
+
         # 4. Architectural Transformation
         if struct.get("concerns_separation") == "Low (Monolithic)":
             self.roadmap.append({
@@ -269,3 +309,82 @@ class RepositoryAnalyzer:
                 "action": "Refactor into a Domain-Driven Design (DDD) layout.",
                 "guide": "Extract business logic into a `/services` layer and keep `/api` for routing only."
             })
+
+    def _run_layer5_security_scan(self):
+        """Layer 5: Detect secrets, vulnerable deps, and code injection."""
+        import re
+        
+        # Secret Patterns
+        secret_patterns = {
+            "AWS Access Key": r"AKIA[0-9A-Z]{16}",
+            "GitHub Token": r"ghp_[a-zA-Z0-9]{36}",
+            "Private Key": r"-----BEGIN [A-Z ]+ PRIVATE KEY-----",
+            "Stripe API Key": r"sk_live_[0-9a-zA-Z]{24}",
+            "Database URL": r"postgresql://[a-zA-Z0-9:]+@[a-zA-Z0-9.-]+:[0-9]+/|[a-z]+://[a-z0-9_]+:[a-z0-9_]+@"
+        }
+
+        # SAST Patterns (Code Injection & SQLi)
+        sast_patterns = {
+            "Insecure eval()": r"eval\(.*\)",
+            "Insecure exec()": r"exec\(.*\)",
+            "Shell Injection": r"shell=True",
+            "Potential SQL Injection": r"(SELECT .* FROM .* WHERE .* (%|\.format|f[\"']))|(\.execute|\.run)\(.*(%|\.format|f[\"']).*\)"
+        }
+
+        # Vulnerable Dependency Signatures
+        vuln_sigs = {
+            "requests": r"requests[<>=! ]*2\.(2[0-7]|1[0-9]|0\.[0-9])", # Old requests
+            "flask": r"flask[<>=! ]*(0\.|1\.0)", # Very old flask
+            "express": r"\"express\":\s*\"[\^~]?[0-3]\.", # Express < 4
+            "lodash": r"\"lodash\":\s*\"[\^~]?[0-3]\."  # Lodash < 4
+        }
+
+        for root, dirs, files in os.walk(self.repo_path):
+            if any(x in root for x in [".git", "node_modules", "__pycache__"]):
+                continue
+            
+            for file in files:
+                file_path = os.path.join(root, file)
+                if not file.endswith((".py", ".js", ".ts", ".php", ".rb", ".go", ".tf", ".env", ".yml", ".json", ".txt")):
+                    continue
+
+                try:
+                    with open(file_path, 'r', errors='ignore') as f:
+                        content = f.read(5000)
+                        
+                        # 1. Scan for Secrets
+                        for label, pattern in secret_patterns.items():
+                            if re.search(pattern, content):
+                                self.security_findings.append({
+                                    "type": "Secret Leak",
+                                    "severity": "CRITICAL",
+                                    "label": label,
+                                    "file": os.path.relpath(file_path, self.repo_path),
+                                    "description": f"Potential {label} detected in plain text."
+                                })
+
+                        # 2. Scan for SAST (only in source files)
+                        if file.endswith((".py", ".js", ".ts", ".php", ".rb")):
+                            for label, pattern in sast_patterns.items():
+                                if re.search(pattern, content):
+                                    self.security_findings.append({
+                                        "type": "Vulnerability (SAST)",
+                                        "severity": "HIGH",
+                                        "label": label,
+                                        "file": os.path.relpath(file_path, self.repo_path),
+                                        "description": f"Dangerous usage of {label} detected. Susceptible to injection attacks."
+                                    })
+                        
+                        # 3. Scan for Vulnerable Dependencies
+                        if file in ["requirements.txt", "package.json"]:
+                            for pkg, sig in vuln_sigs.items():
+                                if re.search(sig, content):
+                                    self.security_findings.append({
+                                        "type": "Vulnerable Dependency",
+                                        "severity": "HIGH",
+                                        "label": f"Insecure {pkg} version",
+                                        "file": os.path.relpath(file_path, self.repo_path),
+                                        "description": f"The version of {pkg} detected has known security flaws (CVEs)."
+                                    })
+                except Exception:
+                    pass
