@@ -55,6 +55,7 @@ INSTRUCTIONS:
    - Business Impact (explain directly how this affects the company's bottom line or engineering velocity)
 4. ARCHITECTURAL PIVOT: Suggest one transformative refactoring or infrastructure shift that would move this project towards "Enterprise" grade. Be highly detailed.
 5. ADDITIONAL TECH STACK: Use your knowledge to identify any additional frameworks, libraries, or tools mentioned in the code that the static scan might have missed, and categorize them.
+6. TECH USAGE: For THE ENTIRE tech stack (including what I provided in project_summary), provide a brief (1-sentence) explanation of how it is being used in this specific project.
 
 OUTPUT FORMAT (JSON):
 {{
@@ -66,6 +67,9 @@ OUTPUT FORMAT (JSON):
         "title": "...",
         "description": "...",
         "impact": "..."
+    }},
+    "tech_stack_usage": {{
+        "TechName": "Brief usage explanation..."
     }},
     "persona": "The Global Staff Architect"
 }}

@@ -43,6 +43,7 @@ interface Repository {
   analysis_results?: {
     static_scan: {
       stack: string[];
+      categories: Record<string, string[]>;
       standards: Record<string, boolean>;
       testing: {
         detected: boolean;
@@ -94,8 +95,8 @@ interface Repository {
       persona: string;
       error?: string;
       payload?: any;
+      tech_stack_usage?: Record<string, string>;
     };
-    categories?: Record<string, string[]>;
     dependency_graph?: {
       nodes: { id: number; name: string; path: string; type: string }[];
       links: { source: number; target: number }[];
@@ -279,8 +280,8 @@ export default function Dashboard() {
             <Cpu className="text-white w-6 h-6" />
           </div>
           <div className="hidden lg:block">
-            <h1 className="text-xl font-black tracking-tighter text-white uppercase">Archon</h1>
-            <span className="text-xs text-slate-500 font-mono tracking-widest uppercase">Intel Core v2</span>
+            <h1 className="text-xl font-black tracking-tighter text-white uppercase">Archon<span className="text-emerald-500">AI</span></h1>
+            <span className="text-[10px] text-slate-500 font-black tracking-[0.2em] uppercase">Engine v1.0.0</span>
           </div>
         </div>
 
@@ -583,6 +584,23 @@ export default function Dashboard() {
                                       </div>
                                     )}
 
+                                    {/* Tech Highlights (Quick View) */}
+                                    {selectedRepo.analysis_results?.static_scan?.categories && (
+                                      <div className="space-y-4">
+                                        <h4 className="text-sm font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
+                                          <Layers size={16} /> Tech Highlights
+                                        </h4>
+                                        <div className="flex flex-wrap gap-3">
+                                          {(Object.values(selectedRepo.analysis_results.static_scan.categories).flat() as string[]).slice(0, 8).map((tech, i) => (
+                                            <div key={i} className="px-4 py-2 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 flex items-center gap-2 group hover:border-indigo-400/30 transition-all">
+                                              <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_indigo]" />
+                                              <span className="text-[11px] font-black text-white uppercase tracking-wider">{tech}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
                                     {/* Roadmap Steps */}
                                     {selectedRepo.analysis_results?.actionable_roadmap && (
                                       <div className="space-y-4 pb-12">
@@ -613,24 +631,31 @@ export default function Dashboard() {
                                     exit={{ opacity: 0, y: -10 }}
                                     className="space-y-6"
                                   >
-                                    {selectedRepo.analysis_results?.categories && (
+                                    {selectedRepo.analysis_results?.static_scan?.categories && (
                                       <div className="p-6 rounded-[2rem] bg-indigo-500/5 border border-indigo-500/20 space-y-6">
                                         <h4 className="text-sm font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
                                           <Layers size={16} /> Comprehensive Tech Stack Breakdown
                                         </h4>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                          {Object.entries(selectedRepo.analysis_results.categories).map(([category, techs]) => (
+                                          {Object.entries(selectedRepo.analysis_results.static_scan.categories).map(([category, techs]) => (
                                             (techs as string[]).length > 0 && (
                                               <div key={category} className="p-5 rounded-2xl bg-black/20 border border-white/5 space-y-4 hover:border-emerald-500/30 transition-all">
                                                 <div className="flex items-center justify-between">
                                                   <h5 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">{category}</h5>
                                                   <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                                                 </div>
-                                                <div className="flex flex-wrap gap-2">
+                                                <div className="space-y-3">
                                                   {(techs as string[]).map(tech => (
-                                                    <span key={tech} className="px-3 py-1.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-xs font-black text-emerald-400 uppercase tracking-tight">
-                                                      {tech}
-                                                    </span>
+                                                    <div key={tech} className="space-y-1">
+                                                      <span className="px-3 py-1.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-[10px] font-black text-emerald-400 uppercase tracking-tight block w-fit">
+                                                        {tech}
+                                                      </span>
+                                                      {selectedRepo.analysis_results?.ai_analysis?.tech_stack_usage?.[tech] && (
+                                                        <p className="text-[11px] text-slate-500 leading-tight pl-1 italic">
+                                                          {selectedRepo.analysis_results.ai_analysis.tech_stack_usage[tech]}
+                                                        </p>
+                                                      )}
+                                                    </div>
                                                   ))}
                                                 </div>
                                               </div>
