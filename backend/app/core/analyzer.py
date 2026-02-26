@@ -27,7 +27,7 @@ class RepositoryAnalyzer:
 
     def _log(self, message: str):
         self.logs.append(message)
-        if self.on_progress and callable(self.on_progress):
+        if self.on_progress is not None and callable(self.on_progress):
             self.on_progress(message)
 
     def analyze(self) -> Dict[str, Any]:
@@ -71,8 +71,18 @@ class RepositoryAnalyzer:
         }
 
     def _run_layer1_static_scan(self):
-        """Layer 1: Detect tech stack and standards."""
-        stack_set: Set[str] = set()
+        """Layer 1: Detect tech stack and standards with categorization."""
+        stack_categories = {
+            "Languages": set(),
+            "Backend": set(),
+            "Frontend": set(),
+            "Database": set(),
+            "Infrastructure": set(),
+            "Testing": set(),
+            "AI/ML": set(),
+            "Tools": set()
+        }
+        
         standards = {
             "has_readme": False,
             "has_gitignore": False,
@@ -87,7 +97,7 @@ class RepositoryAnalyzer:
         testing_detected = False
 
         for root, dirs, files in os.walk(self.repo_path):
-            if any(x in root for x in [".git", "node_modules", "__pycache__"]):
+            if any(x in root for x in [".git", "node_modules", "__pycache__", "venv", ".venv"]):
                 continue
             
             # Detect Standards
@@ -96,53 +106,99 @@ class RepositoryAnalyzer:
             if "docker-compose.yml" in files or "Dockerfile" in files: standards["has_docker"] = True
             if ".github" in dirs or ".gitlab-ci.yml" in files: standards["has_ci_cd"] = True
 
-            # Detect Stack
+            # Detect Stack & Deep Manifest Parsing
             for file in files:
                 file_path = os.path.join(root, file)
-                if file == "package.json": stack_set.add("Node.js/NPM")
-                if file in ["requirements.txt", "pyproject.toml"]: stack_set.add("Python")
-                if file == "go.mod": stack_set.add("Go")
-                if file == "Cargo.toml": stack_set.add("Rust")
-                if file == "pom.xml" or file == "build.gradle": stack_set.add("Java/JVM")
-                if file == "composer.json": stack_set.add("PHP")
-                if file == "Gemfile": stack_set.add("Ruby")
-                if file == "AppDelegate.swift": stack_set.add("Swift/iOS")
                 
-                if file.endswith((".tsx", ".jsx")): 
-                    stack_set.add("React/Next.js")
+                # Manifest Parsings
+                if file == "package.json":
+                    stack_categories["Tools"].add("NPM/Yarn")
+                    try:
+                        import json
+                        with open(file_path, 'r') as f:
+                            pkg_data = json.load(f)
+                            deps = {**pkg_data.get("dependencies", {}), **pkg_data.get("devDependencies", {})}
+                            for dep in deps:
+                                if "react" in dep: stack_categories["Frontend"].add("React")
+                                if "next" in dep: stack_categories["Frontend"].add("Next.js")
+                                if "vue" in dep: stack_categories["Frontend"].add("Vue.js")
+                                if "express" in dep: stack_categories["Backend"].add("Express")
+                                if "tailwind" in dep: stack_categories["Frontend"].add("Tailwind CSS")
+                                if "prisma" in dep: stack_categories["Database"].add("Prisma ORM")
+                                if "mongoose" in dep: stack_categories["Database"].add("Mongoose/MongoDB")
+                                if "jest" in dep or "vitest" in dep: 
+                                    testing_detected = True
+                                    test_frameworks.add(dep)
+                    except: pass
+
+                if file in ["requirements.txt", "pyproject.toml"]:
+                    stack_categories["Languages"].add("Python")
+                    try:
+                        with open(file_path, 'r') as f:
+                            content = f.read()
+                            if "fastapi" in content.lower(): stack_categories["Backend"].add("FastAPI")
+                            if "django" in content.lower(): stack_categories["Backend"].add("Django")
+                            if "flask" in content.lower(): stack_categories["Backend"].add("Flask")
+                            if "sqlalchemy" in content.lower(): stack_categories["Database"].add("SQLAlchemy")
+                            if "psycopg2" in content.lower() or "asyncpg" in content.lower(): stack_categories["Database"].add("PostgreSQL")
+                            if "pytest" in content.lower():
+                                testing_detected = True
+                                test_frameworks.add("pytest")
+                    except: pass
+
+                # Extension-based detection
+                if file.endswith((".py")): stack_categories["Languages"].add("Python")
+                if file.endswith((".js", ".jsx", ".ts", ".tsx")): stack_categories["Languages"].add("JavaScript/TypeScript")
+                if file.endswith(".go"): stack_categories["Languages"].add("Go")
+                if file.endswith(".rs"): stack_categories["Languages"].add("Rust")
+                if file.endswith(".java"): stack_categories["Languages"].add("Java")
+                if file.endswith(".tf"): 
+                    standards["has_terraform"] = True
+                    stack_categories["Infrastructure"].add("Terraform")
                 
-                # Infrastructure & Standards
-                if file.endswith(".tf"): standards["has_terraform"] = True
-                if file in ["deployment.yaml", "k8s.yaml"] or root.endswith("k8s"): standards["has_kubernetes"] = True
+                if file in ["deployment.yaml", "k8s.yaml"] or root.endswith("k8s"): 
+                    standards["has_kubernetes"] = True
+                    stack_categories["Infrastructure"].add("Kubernetes")
                 if file in ["openapi.yaml", "swagger.json"]: standards["has_openapi"] = True
                 if file.startswith(".eslintrc") or file == "prettier.config.js": standards["has_linting"] = True
                 
-                # Content-based detection
-                content = ""
-                if file.endswith((".py", ".java", ".php", ".rb", ".go", ".rs")):
+                # Content-based detection for smaller files
+                if file.endswith((".py", ".java", ".php", ".rb", ".go", ".rs", ".js", ".ts", ".tsx")):
                     try:
                         with open(file_path, 'r', errors='ignore') as f:
-                            content = f.read(2000)
-                            if "FastAPI" in content: stack_set.add("FastAPI")
-                            if "Spring" in content: stack_set.add("Spring Boot")
-                            if "Laravel" in content: stack_set.add("Laravel")
-                            if "rails" in content.lower(): stack_set.add("Rails")
-                    except Exception:
-                        pass
+                            content = f.read(5000)
+                            content_lower = content.lower()
+                            if "fastapi" in content_lower: stack_categories["Backend"].add("FastAPI")
+                            if "spring" in content_lower: stack_categories["Backend"].add("Spring Boot")
+                            if "laravel" in content_lower: stack_categories["Backend"].add("Laravel")
+                            
+                            # AI/ML Detection
+                            if "torch" in content_lower or "pytorch" in content_lower: stack_categories["AI/ML"].add("PyTorch")
+                            if "tensorflow" in content_lower: stack_categories["AI/ML"].add("TensorFlow")
+                            if "keras" in content_lower: stack_categories["AI/ML"].add("Keras")
+                            if "transformers" in content_lower: stack_categories["AI/ML"].add("HuggingFace Transformers")
+                            if "moshi" in content_lower: stack_categories["AI/ML"].add("Moshi (Kyutai)")
+                            if "openai" in content_lower: stack_categories["AI/ML"].add("OpenAI SDK")
+                            if "groq" in content_lower: stack_categories["AI/ML"].add("Groq SDK")
+                            if "scikit-learn" in content_lower or "sklearn" in content_lower: stack_categories["AI/ML"].add("Scikit-Learn")
+                            if "numpy" in content_lower: stack_categories["AI/ML"].add("NumPy")
+                            if "pandas" in content_lower: stack_categories["AI/ML"].add("Pandas")
+                    except: pass
                 
-                # Detect Testing
+                # Detect Testing Files
                 if "test" in file.lower() or file.endswith(("_test.go", ".spec.ts", ".spec.js")):
                     testing_detected = True
                     if file.endswith(".py"): test_frameworks.add("pytest")
                     if file.endswith((".ts", ".js")): test_frameworks.add("jest/vitest/playwright")
-                    if file.endswith(".go"): test_frameworks.add("go test")
-                    if file.endswith(".rs"): test_frameworks.add("cargo test")
-                    if "JUnit" in content or "org.junit" in content: test_frameworks.add("JUnit")
-                    if "PHPUnit" in content: test_frameworks.add("PHPUnit")
-                    if "RSpec" in content or file.endswith("_spec.rb"): test_frameworks.add("RSpec")
+
+        # Flatten stack for backward compatibility but keep categories
+        all_stack = set()
+        for cat in stack_categories.values():
+            all_stack.update(cat)
 
         self.static_findings = {
-            "stack": list(stack_set),
+            "stack": list(all_stack),
+            "categories": {k: list(v) for k, v in stack_categories.items()},
             "standards": standards,
             "testing": {
                 "detected": testing_detected,
@@ -474,10 +530,11 @@ class RepositoryAnalyzer:
                     file_path = os.path.join(root, file)
                     rel_path = os.path.relpath(file_path, self.repo_path)
                     
-                    if len(samples) < 5: 
+                    if len(samples) < 15: 
                         try:
                             with open(file_path, 'r', errors='ignore') as f:
-                                content = f.read(2000)
+                                # Read more content if it's an important file
+                                content = f.read(5000)
                                 samples.append({"path": rel_path, "content": content})
                         except:
                             pass

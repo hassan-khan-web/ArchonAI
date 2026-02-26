@@ -189,8 +189,8 @@ export default function Dashboard() {
             <Cpu className="text-white w-6 h-6" />
           </div>
           <div className="hidden lg:block">
-            <h1 className="text-lg font-black tracking-tighter text-white uppercase">Archon</h1>
-            <span className="text-[10px] text-slate-500 font-mono tracking-widest uppercase">Intel Core v2</span>
+            <h1 className="text-xl font-black tracking-tighter text-white uppercase">Archon</h1>
+            <span className="text-xs text-slate-500 font-mono tracking-widest uppercase">Intel Core v2</span>
           </div>
         </div>
 
@@ -204,7 +204,7 @@ export default function Dashboard() {
         <div className="p-4 border-t border-slate-800/50">
           <div className={`flex items-center gap-3 p-3 rounded-2xl bg-slate-900/50 border transition-colors ${backendStatus === "connected" ? "border-emerald-500/20" : "border-rose-500/20"}`}>
             <div className={`h-2 w-2 rounded-full ${backendStatus === "connected" ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_emerald]" : "bg-rose-400 shadow-[0_0_8px_rose]"}`} />
-            <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">
+            <span className="text-sm font-black uppercase tracking-widest hidden lg:block">
               {backendStatus === "connected" ? "Node Online" : "Node Offline"}
             </span>
           </div>
@@ -216,17 +216,17 @@ export default function Dashboard() {
         {/* Top Header */}
         <header className="h-20 border-b border-slate-800/50 flex items-center justify-between px-8 bg-[#070912]/50 backdrop-blur-md">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-500 capitalize">{view}</span>
-            <ChevronRight size={14} className="text-slate-700" />
-            <span className="text-xs font-bold text-white uppercase tracking-widest">Main Canvas</span>
+            <span className="text-base font-medium text-slate-500 capitalize">{view}</span>
+            <ChevronRight size={16} className="text-slate-700" />
+            <span className="text-base font-bold text-white uppercase tracking-widest">Main Canvas</span>
           </div>
 
           <div className="flex items-center gap-6">
             <div className="relative hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
-              <input type="text" placeholder="Search projects..." className="bg-slate-900/50 border border-slate-800 rounded-xl px-10 py-2 text-xs outline-none focus:border-emerald-500/50 transition-colors w-64" />
+              <input type="text" placeholder="Search projects..." className="bg-slate-900/50 border border-slate-800 rounded-xl px-10 py-2 text-sm outline-none focus:border-emerald-500/50 transition-colors w-64" />
             </div>
-            <button className="h-10 px-4 bg-white text-black font-black text-[11px] uppercase rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/5 flex items-center gap-2">
+            <button className="h-10 px-4 bg-white text-black font-black text-sm uppercase rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/5 flex items-center gap-2">
               <PlusCircle size={16} />
               <span>Deploy Analysis</span>
             </button>
@@ -258,15 +258,15 @@ export default function Dashboard() {
                       <Zap className="text-emerald-400" size={20} />
                     </div>
                     <div>
-                      <h3 className="text-sm font-black text-white uppercase tracking-tighter">Analysis Control</h3>
-                      <p className="text-[10px] text-slate-500 font-bold">Deploy new neural auditing cluster</p>
+                      <h3 className="text-base font-black text-white uppercase tracking-tighter">Analysis Control</h3>
+                      <p className="text-xs text-slate-500 font-bold">Deploy new neural auditing cluster</p>
                     </div>
                   </div>
                   <form onSubmit={handleSubmit} className="flex gap-3 max-w-md w-full">
                     <input
                       type="url"
                       placeholder="Enter Repository URL..."
-                      className="flex-1 bg-black/40 border border-slate-800 rounded-xl px-4 py-2 text-xs outline-none focus:border-emerald-500 transition-all font-medium text-white"
+                      className="flex-1 bg-black/40 border border-slate-800 rounded-xl px-4 py-2 text-sm outline-none focus:border-emerald-500 transition-all font-medium text-white"
                       value={repoUrl}
                       onChange={(e) => setRepoUrl(e.target.value)}
                       required
@@ -274,7 +274,7 @@ export default function Dashboard() {
                     <button
                       type="submit"
                       disabled={isSubmitLoading}
-                      className="px-6 py-2 bg-emerald-600 rounded-xl text-[10px] font-black uppercase text-white hover:bg-emerald-500 transition-all disabled:opacity-50"
+                      className="px-6 py-2 bg-emerald-600 rounded-xl text-xs font-black uppercase text-white hover:bg-emerald-500 transition-all disabled:opacity-50"
                     >
                       {isSubmitLoading ? "Processing..." : "Engage"}
                     </button>
@@ -317,16 +317,16 @@ export default function Dashboard() {
                                   <circle className="text-emerald-500" strokeWidth="6" strokeDasharray={251.2} strokeDashoffset={251.2 - (251.2 * selectedRepo.overall_score) / 100} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
                                 </svg>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                  <span className="text-2xl font-black text-white">{selectedRepo.overall_score}</span>
-                                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Pts</span>
+                                  <span className="text-3xl font-black text-white">{selectedRepo.overall_score}</span>
+                                  <span className="text-sm font-black uppercase tracking-widest text-slate-500">Pts</span>
                                 </div>
                               </div>
                               <div className="space-y-1">
-                                <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase border ${getMaturityColor(selectedRepo.analysis_results?.maturity_label || "")}`}>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-black uppercase border ${getMaturityColor(selectedRepo.analysis_results?.maturity_label || "")}`}>
                                   {selectedRepo.analysis_results?.maturity_label || "Unknown"} Grade
                                 </span>
-                                <h3 className="text-xl font-black text-white uppercase tracking-tighter">Engineering Maturity</h3>
-                                <p className="text-[10px] text-slate-500 leading-relaxed italic">The score reflects neural weighting across infrastructure, parity, and security layers.</p>
+                                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Engineering Maturity</h3>
+                                <p className="text-sm text-slate-500 leading-relaxed italic">The score reflects neural weighting across infrastructure, parity, and security layers.</p>
                               </div>
                             </div>
 
@@ -336,52 +336,77 @@ export default function Dashboard() {
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                   <Cpu size={100} className="text-emerald-500" />
                                 </div>
-                                <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-4 flex items-center gap-2">
-                                  <Sparkles size={14} className="animate-pulse" /> AI Architect Deep Review
+                                <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400 mb-4 flex items-center gap-2">
+                                  <Sparkles size={16} className="animate-pulse" /> AI Architect Deep Review
                                 </h4>
-                                <p className="text-sm text-white leading-relaxed font-medium mb-4 relative z-10">
+                                <div className="text-base text-white/90 leading-relaxed font-medium mb-6 relative z-10 space-y-4 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar whitespace-pre-wrap">
                                   {selectedRepo.analysis_results.ai_analysis.executive_summary}
-                                </p>
+                                </div>
 
                                 {selectedRepo.analysis_results.ai_analysis.architectural_pivot && (
-                                  <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-400/30 space-y-1 mb-4 relative z-10">
+                                  <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-400/30 space-y-2 mb-4 relative z-10">
                                     <div className="flex items-center gap-2 text-emerald-400 mb-1">
-                                      <RefreshCw size={12} />
-                                      <span className="text-[9px] font-black uppercase tracking-wider text-emerald-300">Suggested Action</span>
+                                      <RefreshCw size={16} />
+                                      <span className="text-sm font-black uppercase tracking-wider text-emerald-300">Suggested Action</span>
                                     </div>
-                                    <h5 className="text-xs font-black text-white uppercase">{selectedRepo.analysis_results.ai_analysis.architectural_pivot.title}</h5>
-                                    <p className="text-[10px] text-slate-400 leading-relaxed">{selectedRepo.analysis_results.ai_analysis.architectural_pivot.description}</p>
+                                    <h5 className="text-lg font-black text-white uppercase">{selectedRepo.analysis_results.ai_analysis.architectural_pivot.title}</h5>
+                                    <p className="text-base text-slate-400 leading-relaxed">{selectedRepo.analysis_results.ai_analysis.architectural_pivot.description}</p>
                                   </div>
                                 )}
 
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[8px] text-slate-500 uppercase tracking-widest">Model:</span>
-                                  <span className="text-[8px] font-black text-white uppercase bg-white/5 px-2 py-0.5 rounded-md border border-white/10">
+                                  <span className="text-xs text-slate-500 uppercase tracking-widest">Model:</span>
+                                  <span className="text-xs font-black text-white uppercase bg-white/5 px-3 py-1 rounded-md border border-white/10">
                                     Groq/Llama-3.3-70B
                                   </span>
                                 </div>
                               </div>
                             )}
 
+                            {/* Categorized Tech Stack */}
+                            {selectedRepo.analysis_results?.categories && (
+                              <div className="p-6 rounded-[2rem] bg-white/5 border border-white/10 space-y-4">
+                                <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                  <Layers size={16} /> Comprehensive Tech Stack Breakdown
+                                </h4>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                  {Object.entries(selectedRepo.analysis_results.categories).map(([category, techs]) => (
+                                    (techs as string[]).length > 0 && (
+                                      <div key={category} className="space-y-2">
+                                        <h5 className="text-xs font-black text-slate-600 uppercase tracking-widest">{category}</h5>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {(techs as string[]).map(tech => (
+                                            <span key={tech} className="px-2 py-1 rounded-md bg-emerald-500/5 border border-emerald-500/10 text-xs font-bold text-emerald-400">
+                                              {tech}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                             {/* Technical Debt & Security */}
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-20">
                               {/* Technical Debt */}
-                              {selectedRepo.analysis_results?.structured_critique?.technical_debt && (
+                              {selectedRepo.analysis_results?.ai_analysis?.technical_debt && (
                                 <div className="space-y-4">
-                                  <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
-                                    <Activity size={14} /> Neural Debt Audit
+                                  <h4 className="text-sm font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
+                                    <Activity size={16} /> Neural Debt Audit
                                   </h4>
                                   <div className="space-y-2">
-                                    {selectedRepo.analysis_results.structured_critique.technical_debt.slice(0, 3).map((d, idx) => (
-                                      <div key={idx} className="p-3 rounded-xl bg-slate-900/50 border border-slate-800 flex items-start gap-3">
-                                        <div className="min-w-0">
-                                          <div className="flex items-center gap-2 mb-0.5">
-                                            <span className="text-[7px] font-black text-amber-500 uppercase px-1 rounded bg-amber-500/10">
+                                    {selectedRepo.analysis_results.ai_analysis.technical_debt.map((d: any, idx: number) => (
+                                      <div key={idx} className="p-4 rounded-xl bg-slate-900/50 border border-slate-800 flex items-start gap-4 group/debt hover:border-amber-500/30 transition-colors">
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-xs font-black text-amber-500 uppercase px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20">
                                               {d.area}
                                             </span>
-                                            <span className="text-[9px] font-bold text-white uppercase truncate">{d.issue}</span>
                                           </div>
-                                          <p className="text-[9px] text-slate-600 leading-snug line-clamp-1">{d.impact}</p>
+                                          <h5 className="text-base font-black text-white uppercase mb-1">{d.issue}</h5>
+                                          <p className="text-sm text-slate-500 leading-relaxed">{d.impact}</p>
                                         </div>
                                       </div>
                                     ))}
@@ -392,16 +417,16 @@ export default function Dashboard() {
                               {/* Roadmap Steps */}
                               {selectedRepo.analysis_results?.actionable_roadmap && (
                                 <div className="space-y-4">
-                                  <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2">
-                                    <GitCommit size={14} /> Engineering Roadmap
+                                  <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+                                    <GitCommit size={16} /> Engineering Roadmap
                                   </h4>
                                   <div className="space-y-2">
                                     {selectedRepo.analysis_results.actionable_roadmap.slice(0, 2).map((step, idx) => (
                                       <div key={idx} className="p-3 rounded-xl bg-emerald-600/5 border border-emerald-500/20 space-y-2">
-                                        <h5 className="text-[9px] font-black text-white uppercase">{step.title}</h5>
+                                        <h5 className="text-sm font-black text-white uppercase">{step.title}</h5>
                                         <div className="flex gap-2 items-center">
                                           <div className="h-1 w-1 bg-emerald-400 rounded-full" />
-                                          <p className="text-[9px] text-emerald-400 font-bold">{step.action}</p>
+                                          <p className="text-sm text-emerald-400 font-bold">{step.action}</p>
                                         </div>
                                       </div>
                                     ))}
@@ -416,8 +441,8 @@ export default function Dashboard() {
                           <div className="h-16 w-16 rounded-2.5xl bg-slate-800/30 border border-slate-700/50 flex items-center justify-center mb-6">
                             <Cpu size={32} className="text-slate-600 animate-pulse" />
                           </div>
-                          <h3 className="text-lg font-black text-white uppercase tracking-tighter mb-2">Initialize Architecture visualization</h3>
-                          <p className="text-[11px] text-slate-500 max-w-xs leading-relaxed">Select a repository from your fleet to monitor the neural architecture, security vectors, and AI-driven pivots in real-time.</p>
+                          <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">Initialize Architecture visualization</h3>
+                          <p className="text-sm text-slate-500 max-w-xs leading-relaxed">Select a repository from your fleet to monitor the neural architecture, security vectors, and AI-driven pivots in real-time.</p>
                         </div>
                       )}
                     </AnimatePresence>
@@ -426,8 +451,8 @@ export default function Dashboard() {
                   {/* Right Pane: Repo List (Swapped) */}
                   <div className="w-80 flex flex-col gap-4 overflow-y-auto custom-scrollbar pl-2 shrink-0">
                     <div className="flex items-center justify-between mb-1 px-2">
-                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-right w-full">Neural Fleet</h4>
-                      <span className="hidden text-[10px] text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">{repositories.length} Nodes</span>
+                      <h4 className="text-sm font-black text-slate-500 uppercase tracking-widest text-right w-full">Neural Fleet</h4>
+                      <span className="hidden text-xs text-emerald-500 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">{repositories.length} Nodes</span>
                     </div>
                     <div className="space-y-3">
                       {repositories.map(repo => (
@@ -451,7 +476,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-3">
                     <div className="relative">
                       <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={14} />
-                      <select className="bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-4 py-1.5 text-[10px] font-black uppercase outline-none focus:border-emerald-500 appearance-none">
+                      <select className="bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-4 py-1.5 text-xs font-black uppercase outline-none focus:border-emerald-500 appearance-none">
                         <option>All Stacks</option>
                         <option>Production Only</option>
                       </select>
@@ -491,7 +516,7 @@ function NavItem({ active, onClick, icon, label }: { active: boolean, onClick: (
       className={`w-full flex items-center lg:gap-4 p-3 rounded-2xl transition-all duration-300 relative group overflow-hidden ${active ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20" : "text-slate-500 hover:text-white hover:bg-white/5"}`}
     >
       <span className="shrink-0">{icon}</span>
-      <span className="text-[11px] font-black uppercase tracking-widest hidden lg:block relative z-10">{label}</span>
+      <span className="text-sm font-black uppercase tracking-widest hidden lg:block relative z-10">{label}</span>
       {!active && <div className="absolute inset-0 bg-emerald-600 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300 opacity-20 pointer-events-none" />}
     </button>
   );
@@ -505,9 +530,9 @@ function StatCard({ icon, label, value, detail }: { icon: React.ReactNode, label
         <div className="h-1.5 w-1.5 rounded-full bg-slate-700 group-hover:bg-emerald-400 transition-colors" />
       </div>
       <div className="space-y-1">
-        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</h4>
-        <p className="text-2xl font-black text-white">{value}</p>
-        <p className="text-[10px] text-slate-600 font-bold">{detail}</p>
+        <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">{label}</h4>
+        <p className="text-3xl font-black text-white">{value}</p>
+        <p className="text-xs text-slate-600 font-bold">{detail}</p>
       </div>
     </div>
   );
@@ -526,18 +551,18 @@ function RepoCardSmall({ repo, active, onClick }: { repo: Repository, active?: b
         <div className="flex items-center gap-3">
           <div className={`h-8 w-8 rounded-xl flex items-center justify-center border-2 border-[#05070a] shadow-lg ${active ? "bg-white text-emerald-600" : (repo.overall_score >= 66 ? "bg-emerald-500 text-black" : "bg-teal-500 text-black")
             }`}>
-            <span className="text-[10px] font-black">{repo.overall_score}</span>
+            <span className="text-xs font-black">{repo.overall_score}</span>
           </div>
           <div className="min-w-0">
-            <p className={`text-xs font-black truncate max-w-[140px] uppercase tracking-tighter ${active ? "text-white" : "text-white/80 group-hover:text-white"}`}>
+            <p className={`text-base font-black truncate max-w-[140px] uppercase tracking-tighter ${active ? "text-white" : "text-white/80 group-hover:text-white"}`}>
               {repo.url.split("/").pop()}
             </p>
             <div className="flex items-center gap-2">
-              <span className={`text-[9px] font-bold ${active ? "text-emerald-200" : "text-slate-600"}`}>
+              <span className={`text-sm font-bold ${active ? "text-emerald-200" : "text-slate-600"}`}>
                 {repo.analysis_results?.static_scan.stack?.[0] || "Analysis"}
               </span>
               <span className={`h-1 w-1 rounded-full ${active ? "bg-emerald-400" : "bg-slate-800"}`} />
-              <span className={`text-[9px] font-bold ${active ? "text-emerald-100" : "text-slate-500"} underline decoration-dotted`}>
+              <span className={`text-sm font-bold ${active ? "text-emerald-100" : "text-slate-500"} underline decoration-dotted`}>
                 {repo.status}
               </span>
             </div>
@@ -579,15 +604,15 @@ function RepoCardDetailed({ repo, onClick }: { repo: Repository, onClick: () => 
 
       <div className="flex flex-wrap gap-1.5 pt-2">
         {repo.analysis_results?.static_scan.stack.slice(0, 3).map(s => (
-          <span key={s} className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[8px] font-black uppercase text-slate-500">{s}</span>
+          <span key={s} className="px-2 py-1 rounded-md bg-white/5 border border-white/10 text-sm font-black uppercase text-slate-400">{s}</span>
         ))}
       </div>
 
       <div className="mt-auto pt-6 flex items-center justify-between border-t border-slate-800/50">
-        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter border ${getMaturityColor(repo.analysis_results?.maturity_label || "")}`}>
+        <span className={`px-2 py-0.5 rounded text-xs font-black uppercase tracking-tighter border ${getMaturityColor(repo.analysis_results?.maturity_label || "")}`}>
           {repo.analysis_results?.maturity_label || "Pending"}
         </span>
-        <span className="text-[10px] font-black text-slate-700 uppercase">{repo.status}</span>
+        <span className="text-sm font-black text-slate-700 uppercase">{repo.status}</span>
       </div>
 
       {/* Hover Glow */}
