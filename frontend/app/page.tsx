@@ -93,6 +93,12 @@ interface Repository {
       };
       persona: string;
       error?: string;
+      payload?: any;
+    };
+    categories?: Record<string, string[]>;
+    dependency_graph?: {
+      nodes: { id: number; name: string; path: string; type: string }[];
+      links: { source: number; target: number }[];
     };
   };
   overall_score: number;
@@ -111,6 +117,13 @@ export default function Dashboard() {
   const [isSubmitLoading, setIsSubmitLoading] = useState(false);
   const [backendStatus, setBackendStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [apiUrl] = useState(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
+  const [ingestionMode, setIngestionMode] = useState<"url" | "github" | "upload">("url");
+  const [githubUser, setGithubUser] = useState("");
+  const [githubRepos, setGithubRepos] = useState<any[]>([]);
+  const [isGithubLoading, setIsGithubLoading] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [activeTab, setActiveTab] = useState<"review" | "tech" | "debt" | "graph">("review");
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   const selectedRepo = useMemo(() =>
     repositories.find(r => r.id === selectedRepoId) || null,
@@ -145,7 +158,9 @@ export default function Dashboard() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!repoUrl) return;
     setIsSubmitLoading(true);
+    setSubmissionError(null);
     try {
       const res = await fetch(`${apiUrl}/api/v1/repositories/`, {
         method: "POST",
@@ -155,7 +170,82 @@ export default function Dashboard() {
       if (res.ok) {
         setRepoUrl("");
         fetchRepositories();
+      } else {
+        const err = await res.json();
+        setSubmissionError(err.detail || "Failed to engage neural scanner");
       }
+    } catch (e) {
+      setSubmissionError("Backend neuro-link failure. Check connection.");
+    } finally {
+      setIsSubmitLoading(false);
+    }
+  };
+
+  const fetchGithubRepos = async () => {
+    if (!githubUser) return;
+    setIsGithubLoading(true);
+    setSubmissionError(null);
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/github/repos/${githubUser}`);
+      if (res.ok) {
+        const data = await res.json();
+        setGithubRepos(data);
+      } else if (res.status === 404) {
+        setSubmissionError("GitHub identity not found in public archives");
+        setGithubRepos([]);
+      } else {
+        setSubmissionError("Quantum glitch in GitHub API link");
+      }
+    } catch (e) {
+      setSubmissionError("Failed to reach GitHub neural gateway");
+    } finally {
+      setIsGithubLoading(false);
+    }
+  };
+
+  const handleGithubEngage = async (url: string) => {
+    setIsSubmitLoading(true);
+    setSubmissionError(null);
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/repositories/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (res.ok) {
+        fetchRepositories();
+      } else {
+        setSubmissionError("Deployment sequence interrupted");
+      }
+    } catch (e) {
+      setSubmissionError("Engagement failed: Network unstable");
+    } finally {
+      setIsSubmitLoading(false);
+    }
+  };
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile) return;
+    setIsSubmitLoading(true);
+    setSubmissionError(null);
+    const formData = new FormData();
+    formData.append("file", uploadFile);
+
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/repositories/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      if (res.ok) {
+        setUploadFile(null);
+        fetchRepositories();
+      } else {
+        const err = await res.json();
+        setSubmissionError(err.detail || "Neural upload rejected: Format invalid");
+      }
+    } catch (e) {
+      setSubmissionError("Bio-metric upload failed. Neural link severed.");
     } finally {
       setIsSubmitLoading(false);
     }
@@ -252,33 +342,131 @@ export default function Dashboard() {
                 </div>
 
                 {/* Ingestion Section (NEW Placement) */}
-                <div className="p-5 rounded-[2rem] bg-slate-900/40 border border-slate-800/50 backdrop-blur-sm flex items-center justify-between gap-8 shrink-0">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center">
-                      <Zap className="text-emerald-400" size={20} />
+                <div className="p-8 rounded-[2.5rem] bg-slate-900/40 border border-slate-800/50 backdrop-blur-sm space-y-6 shrink-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-2xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center">
+                        <Zap className="text-emerald-400" size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-black text-white uppercase tracking-tighter">Analysis Control</h3>
+                        <p className="text-sm text-slate-500 font-bold">Deploy new neural auditing cluster</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-base font-black text-white uppercase tracking-tighter">Analysis Control</h3>
-                      <p className="text-xs text-slate-500 font-bold">Deploy new neural auditing cluster</p>
+                    <div className="flex bg-black/40 p-1.5 rounded-xl border border-white/5">
+                      {(["url", "github", "upload"] as const).map(mode => (
+                        <button
+                          key={mode}
+                          onClick={() => setIngestionMode(mode)}
+                          className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${ingestionMode === mode ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/40" : "text-slate-500 hover:text-slate-300"}`}
+                        >
+                          {mode}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <form onSubmit={handleSubmit} className="flex gap-3 max-w-md w-full">
-                    <input
-                      type="url"
-                      placeholder="Enter Repository URL..."
-                      className="flex-1 bg-black/40 border border-slate-800 rounded-xl px-4 py-2 text-sm outline-none focus:border-emerald-500 transition-all font-medium text-white"
-                      value={repoUrl}
-                      onChange={(e) => setRepoUrl(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="submit"
-                      disabled={isSubmitLoading}
-                      className="px-6 py-2 bg-emerald-600 rounded-xl text-xs font-black uppercase text-white hover:bg-emerald-500 transition-all disabled:opacity-50"
-                    >
-                      {isSubmitLoading ? "Processing..." : "Engage"}
-                    </button>
-                  </form>
+
+                  <div className="pt-4 border-t border-white/5 space-y-4">
+                    {submissionError && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        className="px-4 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center gap-3"
+                      >
+                        <AlertCircle size={14} className="text-rose-400" />
+                        <span className="text-xs font-bold text-rose-300 uppercase tracking-wider">{submissionError}</span>
+                      </motion.div>
+                    )}
+
+                    {ingestionMode === "url" && (
+                      <form onSubmit={handleSubmit} className="flex gap-4">
+                        <input
+                          type="url"
+                          placeholder="Paste Repository URL (https://github.com/...)"
+                          className="flex-1 bg-black/60 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-emerald-500 transition-all font-medium text-white"
+                          value={repoUrl}
+                          onChange={(e) => setRepoUrl(e.target.value)}
+                          required
+                        />
+                        <button
+                          type="submit"
+                          disabled={isSubmitLoading}
+                          className="px-10 bg-emerald-600 rounded-xl text-sm font-black uppercase text-white hover:bg-emerald-500 transition-all disabled:opacity-50"
+                        >
+                          {isSubmitLoading ? "Engaging..." : "Scan Repository"}
+                        </button>
+                      </form>
+                    )}
+
+                    {ingestionMode === "github" && (
+                      <div className="space-y-4">
+                        <div className="flex gap-4">
+                          <div className="relative flex-1">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">github.com/</span>
+                            <input
+                              type="text"
+                              placeholder="username"
+                              className="w-full bg-black/60 border border-slate-800 rounded-xl pl-28 pr-5 py-3 text-sm outline-none focus:border-emerald-500 transition-all font-medium text-white"
+                              value={githubUser}
+                              onChange={(e) => setGithubUser(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && fetchGithubRepos()}
+                            />
+                          </div>
+                          <button
+                            onClick={fetchGithubRepos}
+                            disabled={isGithubLoading}
+                            className="px-10 bg-emerald-600 rounded-xl text-sm font-black uppercase text-white hover:bg-emerald-500 transition-all"
+                          >
+                            {isGithubLoading ? "Fetching..." : "Connect"}
+                          </button>
+                        </div>
+                        {githubRepos.length > 0 && (
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                            {githubRepos.map(repo => (
+                              <div key={repo.full_name} className="p-3 rounded-xl bg-slate-800/30 border border-slate-700/50 flex flex-col justify-between group hover:border-emerald-500/30 transition-all">
+                                <div>
+                                  <h4 className="text-sm font-black text-white truncate">{repo.name}</h4>
+                                  <p className="text-[10px] text-slate-500 line-clamp-1">{repo.description || "No description"}</p>
+                                </div>
+                                <button
+                                  onClick={() => handleGithubEngage(repo.html_url)}
+                                  className="mt-3 w-full py-1.5 bg-emerald-600/10 border border-emerald-500/20 text-[10px] font-black uppercase text-emerald-400 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-all"
+                                >
+                                  Engage
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {ingestionMode === "upload" && (
+                      <form onSubmit={handleUpload} className="flex gap-4">
+                        <div className="flex-1 relative">
+                          <input
+                            type="file"
+                            accept=".zip"
+                            onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                            className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                          />
+                          <div className="h-full bg-black/60 border border-dashed border-slate-800 rounded-xl px-5 py-3 flex items-center justify-between transition-all group-hover:border-emerald-500/50">
+                            <span className="text-sm text-slate-400">
+                              {uploadFile ? uploadFile.name : "Select or drag architecture ZIP file..."}
+                            </span>
+                            <PlusCircle size={18} className="text-slate-600" />
+                          </div>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={!uploadFile || isSubmitLoading}
+                          className="px-10 bg-emerald-600 rounded-xl text-sm font-black uppercase text-white hover:bg-emerald-500 transition-all disabled:opacity-30"
+                        >
+                          {isSubmitLoading ? "Engaging..." : "Upload & Scan"}
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 </div>
 
                 {/* Main Two-Pane Section */}
@@ -306,133 +494,269 @@ export default function Dashboard() {
                                   <p className="text-[8px] text-slate-600 font-mono tracking-widest">{selectedRepo.id}</p>
                                 </div>
                               </div>
-                            </div>
-
-                            {/* Score & Grade */}
-                            <div className="flex items-center gap-8 bg-white/5 p-6 rounded-[2rem] border border-white/10 relative overflow-hidden shrink-0">
-                              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-600/10 blur-3xl rounded-full" />
-                              <div className="relative h-24 w-24 shrink-0">
-                                <svg className="h-full w-full" viewBox="0 0 100 100">
-                                  <circle className="text-slate-800" strokeWidth="6" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
-                                  <circle className="text-emerald-500" strokeWidth="6" strokeDasharray={251.2} strokeDashoffset={251.2 - (251.2 * selectedRepo.overall_score) / 100} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                  <span className="text-3xl font-black text-white">{selectedRepo.overall_score}</span>
-                                  <span className="text-sm font-black uppercase tracking-widest text-slate-500">Pts</span>
-                                </div>
-                              </div>
-                              <div className="space-y-1">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-black uppercase border ${getMaturityColor(selectedRepo.analysis_results?.maturity_label || "")}`}>
-                                  {selectedRepo.analysis_results?.maturity_label || "Unknown"} Grade
-                                </span>
-                                <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Engineering Maturity</h3>
-                                <p className="text-sm text-slate-500 leading-relaxed italic">The score reflects neural weighting across infrastructure, parity, and security layers.</p>
+                              <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
+                                {(["review", "tech", "debt", "graph"] as const).map(t => (
+                                  <button
+                                    key={t}
+                                    onClick={() => setActiveTab(t)}
+                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === t ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/40" : "text-slate-500 hover:text-slate-300"}`}
+                                  >
+                                    {t}
+                                  </button>
+                                ))}
                               </div>
                             </div>
 
-                            {/* AI Architect Review */}
-                            {selectedRepo.analysis_results?.ai_analysis && !selectedRepo.analysis_results.ai_analysis.error && (
-                              <div className="p-6 rounded-[2rem] bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 border border-emerald-400/20 relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                  <Cpu size={100} className="text-emerald-500" />
-                                </div>
-                                <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400 mb-4 flex items-center gap-2">
-                                  <Sparkles size={16} className="animate-pulse" /> AI Architect Deep Review
-                                </h4>
-                                <div className="text-base text-white/90 leading-relaxed font-medium mb-6 relative z-10 space-y-4 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar whitespace-pre-wrap">
-                                  {selectedRepo.analysis_results.ai_analysis.executive_summary}
-                                </div>
-
-                                {selectedRepo.analysis_results.ai_analysis.architectural_pivot && (
-                                  <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-400/30 space-y-2 mb-4 relative z-10">
-                                    <div className="flex items-center gap-2 text-emerald-400 mb-1">
-                                      <RefreshCw size={16} />
-                                      <span className="text-sm font-black uppercase tracking-wider text-emerald-300">Suggested Action</span>
+                            {/* Tab Content Panels */}
+                            <div className="flex-1 min-h-0">
+                              <AnimatePresence mode="wait">
+                                {activeTab === "review" && (
+                                  <motion.div
+                                    key="review"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="space-y-8"
+                                  >
+                                    <div className="flex items-center gap-8 bg-white/5 p-6 rounded-[2rem] border border-white/10 relative overflow-hidden shrink-0">
+                                      <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-600/10 blur-3xl rounded-full" />
+                                      <div className="relative h-24 w-24 shrink-0">
+                                        <svg className="h-full w-full" viewBox="0 0 100 100">
+                                          <circle className="text-slate-800" strokeWidth="6" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
+                                          <circle className="text-emerald-500" strokeWidth="6" strokeDasharray={251.2} strokeDashoffset={251.2 - (251.2 * selectedRepo.overall_score) / 100} strokeLinecap="round" stroke="currentColor" fill="transparent" r="40" cx="50" cy="50" />
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                          <span className="text-3xl font-black text-white">{selectedRepo.overall_score}</span>
+                                          <span className="text-sm font-black uppercase tracking-widest text-slate-500">Pts</span>
+                                        </div>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-black uppercase border ${getMaturityColor(selectedRepo.analysis_results?.maturity_label || "")}`}>
+                                          {selectedRepo.analysis_results?.maturity_label || "Unknown"} Grade
+                                        </span>
+                                        <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Engineering Maturity</h3>
+                                        <p className="text-sm text-slate-500 leading-relaxed italic">The score reflects neural weighting across infrastructure, parity, and security layers.</p>
+                                      </div>
                                     </div>
-                                    <h5 className="text-lg font-black text-white uppercase">{selectedRepo.analysis_results.ai_analysis.architectural_pivot.title}</h5>
-                                    <p className="text-base text-slate-400 leading-relaxed">{selectedRepo.analysis_results.ai_analysis.architectural_pivot.description}</p>
-                                  </div>
-                                )}
 
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-slate-500 uppercase tracking-widest">Model:</span>
-                                  <span className="text-xs font-black text-white uppercase bg-white/5 px-3 py-1 rounded-md border border-white/10">
-                                    Groq/Llama-3.3-70B
-                                  </span>
-                                </div>
-                              </div>
-                            )}
+                                    {selectedRepo.analysis_results?.ai_analysis && !selectedRepo.analysis_results.ai_analysis.error && (
+                                      <div className="p-6 rounded-[2rem] bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 border border-emerald-400/20 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                          <Cpu size={100} className="text-emerald-500" />
+                                        </div>
+                                        <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400 mb-4 flex items-center gap-2">
+                                          <Sparkles size={16} className="animate-pulse" /> AI Architect Deep Review
+                                        </h4>
+                                        <div className="text-base text-white/90 leading-relaxed font-medium mb-6 relative z-10 space-y-4 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar whitespace-pre-wrap">
+                                          {typeof selectedRepo.analysis_results.ai_analysis.executive_summary === 'string'
+                                            ? selectedRepo.analysis_results.ai_analysis.executive_summary
+                                            : Object.values(selectedRepo.analysis_results.ai_analysis.executive_summary).join('\n\n')}
+                                        </div>
 
-                            {/* Categorized Tech Stack */}
-                            {selectedRepo.analysis_results?.categories && (
-                              <div className="p-6 rounded-[2rem] bg-white/5 border border-white/10 space-y-4">
-                                <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                                  <Layers size={16} /> Comprehensive Tech Stack Breakdown
-                                </h4>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                  {Object.entries(selectedRepo.analysis_results.categories).map(([category, techs]) => (
-                                    (techs as string[]).length > 0 && (
-                                      <div key={category} className="space-y-2">
-                                        <h5 className="text-xs font-black text-slate-600 uppercase tracking-widest">{category}</h5>
-                                        <div className="flex flex-wrap gap-1.5">
-                                          {(techs as string[]).map(tech => (
-                                            <span key={tech} className="px-2 py-1 rounded-md bg-emerald-500/5 border border-emerald-500/10 text-xs font-bold text-emerald-400">
-                                              {tech}
-                                            </span>
+                                        {selectedRepo.analysis_results.ai_analysis.architectural_pivot && (
+                                          <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-400/30 space-y-2 mb-4 relative z-10">
+                                            <div className="flex items-center gap-2 text-emerald-400 mb-1">
+                                              <RefreshCw size={16} />
+                                              <span className="text-sm font-black uppercase tracking-wider text-emerald-300">Suggested Action</span>
+                                            </div>
+                                            <h5 className="text-lg font-black text-white uppercase">{selectedRepo.analysis_results.ai_analysis.architectural_pivot.title}</h5>
+                                            <p className="text-base text-slate-400 leading-relaxed">
+                                              {typeof selectedRepo.analysis_results.ai_analysis.architectural_pivot.description === 'string'
+                                                ? selectedRepo.analysis_results.ai_analysis.architectural_pivot.description
+                                                : Object.values(selectedRepo.analysis_results.ai_analysis.architectural_pivot.description).join(' ')}
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-slate-500 uppercase tracking-widest">Model:</span>
+                                          <span className="text-xs font-black text-white uppercase bg-white/5 px-3 py-1 rounded-md border border-white/10">
+                                            Groq/Llama-3.3-70B
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Roadmap Steps */}
+                                    {selectedRepo.analysis_results?.actionable_roadmap && (
+                                      <div className="space-y-4 pb-12">
+                                        <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+                                          <GitCommit size={16} /> Engineering Roadmap
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                          {selectedRepo.analysis_results.actionable_roadmap.slice(0, 4).map((step, idx) => (
+                                            <div key={idx} className="p-4 rounded-2xl bg-emerald-600/5 border border-emerald-500/20 space-y-2">
+                                              <h5 className="text-sm font-black text-white uppercase">{step.title}</h5>
+                                              <div className="flex gap-2 items-center">
+                                                <div className="h-1 w-1 bg-emerald-400 rounded-full" />
+                                                <p className="text-sm text-emerald-400 font-bold">{step.action}</p>
+                                              </div>
+                                            </div>
                                           ))}
                                         </div>
                                       </div>
-                                    )
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                                    )}
+                                  </motion.div>
+                                )}
 
-                            {/* Technical Debt & Security */}
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-20">
-                              {/* Technical Debt */}
-                              {selectedRepo.analysis_results?.ai_analysis?.technical_debt && (
-                                <div className="space-y-4">
-                                  <h4 className="text-sm font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
-                                    <Activity size={16} /> Neural Debt Audit
-                                  </h4>
-                                  <div className="space-y-2">
-                                    {selectedRepo.analysis_results.ai_analysis.technical_debt.map((d: any, idx: number) => (
-                                      <div key={idx} className="p-4 rounded-xl bg-slate-900/50 border border-slate-800 flex items-start gap-4 group/debt hover:border-amber-500/30 transition-colors">
-                                        <div className="min-w-0 flex-1">
-                                          <div className="flex items-center justify-between mb-1.5">
-                                            <span className="text-xs font-black text-amber-500 uppercase px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20">
-                                              {d.area}
-                                            </span>
+                                {activeTab === "tech" && (
+                                  <motion.div
+                                    key="tech"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="space-y-6"
+                                  >
+                                    {selectedRepo.analysis_results?.categories && (
+                                      <div className="p-6 rounded-[2rem] bg-indigo-500/5 border border-indigo-500/20 space-y-6">
+                                        <h4 className="text-sm font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
+                                          <Layers size={16} /> Comprehensive Tech Stack Breakdown
+                                        </h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                          {Object.entries(selectedRepo.analysis_results.categories).map(([category, techs]) => (
+                                            (techs as string[]).length > 0 && (
+                                              <div key={category} className="p-5 rounded-2xl bg-black/20 border border-white/5 space-y-4 hover:border-emerald-500/30 transition-all">
+                                                <div className="flex items-center justify-between">
+                                                  <h5 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">{category}</h5>
+                                                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                  {(techs as string[]).map(tech => (
+                                                    <span key={tech} className="px-3 py-1.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-xs font-black text-emerald-400 uppercase tracking-tight">
+                                                      {tech}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </motion.div>
+                                )}
+
+                                {activeTab === "debt" && (
+                                  <motion.div
+                                    key="debt"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="space-y-6"
+                                  >
+                                    {selectedRepo.analysis_results?.ai_analysis?.technical_debt && (
+                                      <div className="space-y-4">
+                                        <h4 className="text-sm font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
+                                          <Activity size={16} /> Neural Debt Audit
+                                        </h4>
+                                        <div className="grid grid-cols-1 gap-3">
+                                          {selectedRepo.analysis_results.ai_analysis.technical_debt.map((d: any, idx: number) => (
+                                            <div key={idx} className="p-6 rounded-[1.5rem] bg-amber-500/5 border border-amber-500/10 flex items-start gap-6 group hover:border-amber-500/40 transition-all">
+                                              <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                                                <AlertCircle size={20} className="text-amber-400" />
+                                              </div>
+                                              <div className="min-w-0 flex-1">
+                                                <div className="flex items-center justify-between mb-2">
+                                                  <span className="text-[10px] font-black text-amber-500 uppercase px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 tracking-widest">
+                                                    {d.area}
+                                                  </span>
+                                                </div>
+                                                <h5 className="text-lg font-black text-white uppercase mb-1">{d.issue}</h5>
+                                                <p className="text-sm text-slate-500 leading-relaxed font-medium">{d.impact}</p>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </motion.div>
+                                )}
+
+                                {activeTab === "graph" && (
+                                  <motion.div
+                                    key="graph"
+                                    initial={{ opacity: 0, scale: 0.98 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.98 }}
+                                    className="h-full min-h-[500px] w-full bg-slate-900/40 rounded-[2.5rem] border border-white/5 relative overflow-hidden p-8"
+                                  >
+                                    <h4 className="text-sm font-black uppercase tracking-widest text-emerald-500 mb-8 flex items-center gap-2 leading-none">
+                                      <Maximize2 size={16} /> Architectural Dependency Graph
+                                    </h4>
+
+                                    <div className="relative h-[400px] w-full flex items-center justify-center">
+                                      {(selectedRepo.analysis_results as any)?.dependency_graph?.nodes?.length > 0 ? (
+                                        <div className="relative w-full h-full">
+                                          {/* Connecting Lines */}
+                                          <svg className="absolute inset-0 pointer-events-none opacity-30 h-full w-full">
+                                            {(selectedRepo.analysis_results as any).dependency_graph.links.slice(0, 30).map((link: any, i: number) => {
+                                              const sourceNode = (selectedRepo.analysis_results as any).dependency_graph.nodes.find((n: any) => n.id === link.source);
+                                              const targetNode = (selectedRepo.analysis_results as any).dependency_graph.nodes.find((n: any) => n.id === link.target);
+                                              if (!sourceNode || !targetNode) return null;
+
+                                              // High-energy pseudo-random positions for visualization
+                                              const x1 = 15 + (link.source * 13) % 70;
+                                              const y1 = 15 + (link.source * 17) % 70;
+                                              const x2 = 15 + (link.target * 19) % 70;
+                                              const y2 = 15 + (link.target * 23) % 70;
+
+                                              return (
+                                                <line
+                                                  key={i}
+                                                  x1={`${x1}%`} y1={`${y1}%`}
+                                                  x2={`${x2}%`} y2={`${y2}%`}
+                                                  stroke="rgba(16, 185, 129, 0.4)" strokeWidth="1" strokeDasharray="4 2"
+                                                />
+                                              );
+                                            })}
+                                          </svg>
+
+                                          {/* Node Points */}
+                                          <div className="absolute inset-0">
+                                            {(selectedRepo.analysis_results as any).dependency_graph.nodes.slice(0, 20).map((node: any, i: number) => (
+                                              <motion.div
+                                                key={node.id}
+                                                initial={{ opacity: 0, scale: 0 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                transition={{ delay: i * 0.02 }}
+                                                style={{
+                                                  left: `${15 + (node.id * 13) % 70}%`,
+                                                  top: `${15 + (node.id * 17) % 70}%`
+                                                }}
+                                                className="absolute -translate-x-1/2 -translate-y-1/2 p-3 bg-slate-800/80 border border-emerald-500/20 rounded-xl backdrop-blur-md hover:border-emerald-400 group cursor-pointer transition-all z-20"
+                                              >
+                                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 mb-1 group-hover:scale-150 transition-transform" />
+                                                <p className="text-[10px] font-black text-white hover:text-emerald-400 transition-colors truncate max-w-[100px]">{node.name}</p>
+                                                <div className="absolute top-full left-0 mt-2 hidden group-hover:block bg-black/90 p-2 rounded-lg border border-white/10 z-50 whitespace-nowrap">
+                                                  <p className="text-[8px] text-slate-500 font-mono italic">{node.path}</p>
+                                                </div>
+                                              </motion.div>
+                                            ))}
                                           </div>
-                                          <h5 className="text-base font-black text-white uppercase mb-1">{d.issue}</h5>
-                                          <p className="text-sm text-slate-500 leading-relaxed">{d.impact}</p>
+                                        </div>
+                                      ) : (
+                                        <div className="flex flex-col items-center opacity-20">
+                                          <Cpu size={64} className="mb-4 animate-pulse" />
+                                          <p className="text-sm font-black uppercase tracking-widest leading-none">Architectural Matrix Offline</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="absolute bottom-8 left-8 right-8 flex items-center justify-between border-t border-white/5 pt-4">
+                                      <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-2">
+                                          <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Active Node</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <div className="h-2 w-2 rounded-full bg-white/10 border border-emerald-500/20" />
+                                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Dependency Vector</span>
                                         </div>
                                       </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Roadmap Steps */}
-                              {selectedRepo.analysis_results?.actionable_roadmap && (
-                                <div className="space-y-4">
-                                  <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2">
-                                    <GitCommit size={16} /> Engineering Roadmap
-                                  </h4>
-                                  <div className="space-y-2">
-                                    {selectedRepo.analysis_results.actionable_roadmap.slice(0, 2).map((step, idx) => (
-                                      <div key={idx} className="p-3 rounded-xl bg-emerald-600/5 border border-emerald-500/20 space-y-2">
-                                        <h5 className="text-sm font-black text-white uppercase">{step.title}</h5>
-                                        <div className="flex gap-2 items-center">
-                                          <div className="h-1 w-1 bg-emerald-400 rounded-full" />
-                                          <p className="text-sm text-emerald-400 font-bold">{step.action}</p>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
+                                      <p className="text-[10px] font-bold text-slate-600 italic">Neural Engine: V1 Architecture Mapper</p>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
                             </div>
                           </div>
                         </motion.div>

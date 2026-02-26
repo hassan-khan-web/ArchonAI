@@ -53,6 +53,9 @@ class RepositoryAnalyzer:
         self._log("Phase Theta: Generating actionable transformation roadmap...")
         self._run_layer4_actionable_roadmap()
         
+        self._log("Phase Iota: Mapping architectural dependency graph...")
+        self._run_layer7_dependency_graph()
+        
         self._log("Analysis Complete.")
         
         return {
@@ -67,6 +70,7 @@ class RepositoryAnalyzer:
             "score_breakdown": self.score_breakdown,
             "actionable_roadmap": self.roadmap,
             "security_findings": self.security_findings,
+            "dependency_graph": getattr(self, "dependency_graph", {"nodes": [], "links": []}),
             "logs": self.logs
         }
 
@@ -563,3 +567,65 @@ class RepositoryAnalyzer:
             self._log("AI Architect review finalized.")
         else:
             self._log(f"AI Warning: {self.ai_analysis['error']}")
+
+    def _run_layer7_dependency_graph(self):
+        """Layer 7: Build a node-link graph of module dependencies."""
+        nodes = []
+        links = []
+        file_to_id = {}
+        
+        # 1. Identify all source files as nodes
+        for root, _, files in os.walk(self.repo_path):
+            if any(x in root for x in [".git", "node_modules", "__pycache__", "venv"]):
+                continue
+            for file in files:
+                if file.endswith((".py", ".js", ".ts", ".tsx", ".go")):
+                    rel_path = os.path.relpath(os.path.join(root, file), self.repo_path)
+                    node_id = len(nodes)
+                    nodes.append({
+                        "id": node_id,
+                        "name": file,
+                        "path": rel_path,
+                        "type": "module"
+                    })
+                    file_to_id[rel_path] = node_id
+
+        # 2. Extract imports (basic regex for Python & JS/TS)
+        import_patterns = [
+            # Python: from x import y or import x
+            r"^(?:from|import)\s+([a-zA-Z0-9_\.]+)",
+            # JS/TS: import x from 'y' or import 'y'
+            r"import\s+.*from\s+['\"](.*)['\"]",
+            r"import\s+['\"](.*)['\"]",
+            # JS/TS: require('y')
+            r"require\(['\"](.*)['\"]\)"
+        ]
+
+        for source_path, source_id in file_to_id.items():
+            full_path = os.path.join(self.repo_path, source_path)
+            try:
+                with open(full_path, 'r', errors='ignore') as f:
+                    content = f.read(10000) # Read first 10k chars for imports
+                    for pattern in import_patterns:
+                        matches = re.finditer(pattern, content, re.MULTILINE)
+                        for match in matches:
+                            target = match.group(1)
+                            # Try to resolve target to a file in our nodes
+                            # Simple resolution logic
+                            for potential_target in file_to_id:
+                                # Match if target is a substring of path or path contains target
+                                # e.g., 'app.core.analyzer' matches 'app/core/analyzer.py'
+                                normalized_target = target.replace(".", "/")
+                                if normalized_target in potential_target and source_path != potential_target:
+                                    links.append({
+                                        "source": source_id,
+                                        "target": file_to_id[potential_target],
+                                        "value": 1
+                                    })
+                                    break
+            except: pass
+
+        self.dependency_graph = {
+            "nodes": nodes[:50], # Limit for UI performance
+            "links": links[:100]
+        }
