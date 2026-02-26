@@ -547,10 +547,13 @@ export default function Dashboard() {
                                         <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400 mb-4 flex items-center gap-2">
                                           <Sparkles size={16} className="animate-pulse" /> AI Architect Deep Review
                                         </h4>
-                                        <div className="text-base text-white/90 leading-relaxed font-medium mb-6 relative z-10 space-y-4 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar whitespace-pre-wrap">
-                                          {typeof selectedRepo.analysis_results.ai_analysis.executive_summary === 'string'
-                                            ? selectedRepo.analysis_results.ai_analysis.executive_summary
-                                            : Object.values(selectedRepo.analysis_results.ai_analysis.executive_summary).join('\n\n')}
+                                        <div className="text-base text-white/90 leading-relaxed font-medium mb-6 relative z-10 space-y-4 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
+                                          {(typeof selectedRepo.analysis_results.ai_analysis.executive_summary === 'string'
+                                            ? selectedRepo.analysis_results.ai_analysis.executive_summary.split('\n\n')
+                                            : Object.values(selectedRepo.analysis_results.ai_analysis.executive_summary)
+                                          ).map((para, i) => (
+                                            <p key={i}>{para as string}</p>
+                                          ))}
                                         </div>
 
                                         {selectedRepo.analysis_results.ai_analysis.architectural_pivot && (
@@ -560,11 +563,14 @@ export default function Dashboard() {
                                               <span className="text-sm font-black uppercase tracking-wider text-emerald-300">Suggested Action</span>
                                             </div>
                                             <h5 className="text-lg font-black text-white uppercase">{selectedRepo.analysis_results.ai_analysis.architectural_pivot.title}</h5>
-                                            <p className="text-base text-slate-400 leading-relaxed">
-                                              {typeof selectedRepo.analysis_results.ai_analysis.architectural_pivot.description === 'string'
-                                                ? selectedRepo.analysis_results.ai_analysis.architectural_pivot.description
-                                                : Object.values(selectedRepo.analysis_results.ai_analysis.architectural_pivot.description).join(' ')}
-                                            </p>
+                                            <div className="text-base text-slate-400 leading-relaxed space-y-2">
+                                              {(typeof selectedRepo.analysis_results.ai_analysis.architectural_pivot.description === 'string'
+                                                ? selectedRepo.analysis_results.ai_analysis.architectural_pivot.description.split('\n\n')
+                                                : Object.values(selectedRepo.analysis_results.ai_analysis.architectural_pivot.description)
+                                              ).map((p, i) => (
+                                                <p key={i}>{p as string}</p>
+                                              ))}
+                                            </div>
                                           </div>
                                         )}
 
