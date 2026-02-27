@@ -43,9 +43,7 @@ async def create_repository(
         await db.refresh(repo)
 
     # Trigger background task
-    # We pass ID and URL as simple types (UUID -> str if needed, but Celery handles UUID usually)
-    # Safest to pass string for UUID
-    clone_repository.delay(str(repo.id), str(repo.url))
+    clone_repository.delay(str(repo.id), str(repo.url), repo_in.github_token)
 
     return repo
 

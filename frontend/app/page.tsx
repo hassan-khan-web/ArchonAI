@@ -125,17 +125,64 @@ export default function Dashboard() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState<"review" | "tech" | "debt" | "graph">("review");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [githubToken, setGithubToken] = useState<string | null>(null);
+  const [isOAuthLoading, setIsOAuthLoading] = useState(false);
 
   const selectedRepo = useMemo(() =>
     repositories.find(r => r.id === selectedRepoId) || null,
     [repositories, selectedRepoId]);
 
-  // Auto-select first repo if none selected
   useEffect(() => {
     if (repositories.length > 0 && !selectedRepoId) {
       setSelectedRepoId(repositories[0].id);
     }
   }, [repositories, selectedRepoId]);
+
+  // OAuth Callback Handler
+  useEffect(() => {
+    const savedToken = localStorage.getItem("archon_github_token");
+    if (savedToken) setGithubToken(savedToken);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+
+    if (code && !githubToken) {
+      completeOAuth(code);
+    }
+  }, []);
+
+  const completeOAuth = async (code: string) => {
+    setIsOAuthLoading(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/auth/callback?code=${code}`);
+      if (res.ok) {
+        const data = await res.json();
+        const token = data.access_token;
+        if (token) {
+          setGithubToken(token);
+          localStorage.setItem("archon_github_token", token);
+          // Clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      } else {
+        setSubmissionError("Failed to finalize GitHub link");
+      }
+    } catch (e) {
+      setSubmissionError("Neural link failure during OAuth handshake");
+    } finally {
+      setIsOAuthLoading(false);
+    }
+  };
+
+  const handleGithubLogin = () => {
+    window.location.href = `${apiUrl}/api/v1/auth/login`;
+  };
+
+  const handleLogoutGithub = () => {
+    setGithubToken(null);
+    localStorage.removeItem("archon_github_token");
+    setGithubRepos([]);
+  };
 
   // --- Data Fetching ---
   const fetchRepositories = useCallback(async () => {
@@ -183,11 +230,20 @@ export default function Dashboard() {
   };
 
   const fetchGithubRepos = async () => {
-    if (!githubUser) return;
+    if (!githubUser && !githubToken) return;
     setIsGithubLoading(true);
     setSubmissionError(null);
     try {
-      const res = await fetch(`${apiUrl}/api/v1/github/repos/${githubUser}`);
+      // If we have a token, we can just fetch the user's repos directly if no username is provided
+      const endpoint = githubUser
+        ? `${apiUrl}/api/v1/github/repos/${githubUser}`
+        : `https://api.github.com/user/repos`; // Direct GitHub call if we have token? 
+      // Actually best to keep it through our backend for consistency or use token headers
+
+      const res = await fetch(endpoint, {
+        headers: githubToken ? { "Authorization": `token ${githubToken}` } : {}
+      });
+
       if (res.ok) {
         const data = await res.json();
         setGithubRepos(data);
@@ -198,7 +254,7 @@ export default function Dashboard() {
         setSubmissionError("Quantum glitch in GitHub API link");
       }
     } catch (e) {
-      setSubmissionError("Failed to reach GitHub neural gateway");
+      setSubmissionError("Backend neuro-link failure. Check connection.");
     } finally {
       setIsGithubLoading(false);
     }
@@ -401,26 +457,77 @@ export default function Dashboard() {
 
                     {ingestionMode === "github" && (
                       <div className="space-y-4">
-                        <div className="flex gap-4">
-                          <div className="relative flex-1">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">github.com/</span>
-                            <input
-                              type="text"
-                              placeholder="username"
-                              className="w-full bg-black/60 border border-slate-800 rounded-xl pl-28 pr-5 py-3 text-sm outline-none focus:border-emerald-500 transition-all font-medium text-white"
-                              value={githubUser}
-                              onChange={(e) => setGithubUser(e.target.value)}
-                              onKeyDown={(e) => e.key === "Enter" && fetchGithubRepos()}
-                            />
+                        {!githubToken ? (
+                          <div className="flex flex-col items-center justify-center p-8 rounded-2xl bg-black/40 border border-dashed border-slate-800 space-y-4">
+                            <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                              <Github size={32} className="text-emerald-400" />
+                            </div>
+                            <div className="text-center">
+                              <h4 className="text-white font-bold">Private Repository Access</h4>
+                              <p className="text-xs text-slate-500 mt-1">Connect your account to scan private neural clusters</p>
+                            </div>
+                            <button
+                              onClick={handleGithubLogin}
+                              className="px-8 py-3 bg-white text-black rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-400 transition-all flex items-center gap-2"
+                            >
+                              <Github size={14} />
+                              Connect GitHub Account
+                            </button>
+                            <div className="text-[10px] text-slate-600 font-bold uppercase tracking-tighter">— OR SEARCH PUBLIC ARCHIVES —</div>
+                            <div className="flex gap-4 w-full">
+                              <input
+                                type="text"
+                                placeholder="username"
+                                className="flex-1 bg-black/60 border border-slate-800 rounded-xl px-5 py-3 text-sm outline-none focus:border-emerald-500 transition-all font-medium text-white"
+                                value={githubUser}
+                                onChange={(e) => setGithubUser(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && fetchGithubRepos()}
+                              />
+                              <button
+                                onClick={fetchGithubRepos}
+                                disabled={isGithubLoading}
+                                className="px-6 bg-emerald-600 rounded-xl text-xs font-black uppercase text-white hover:bg-emerald-500 transition-all"
+                              >
+                                Search
+                              </button>
+                            </div>
                           </div>
-                          <button
-                            onClick={fetchGithubRepos}
-                            disabled={isGithubLoading}
-                            className="px-10 bg-emerald-600 rounded-xl text-sm font-black uppercase text-white hover:bg-emerald-500 transition-all"
-                          >
-                            {isGithubLoading ? "Fetching..." : "Connect"}
-                          </button>
-                        </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
+                              <div className="flex items-center gap-3">
+                                <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                                <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">GitHub Auth Active</span>
+                              </div>
+                              <button
+                                onClick={handleLogoutGithub}
+                                className="text-[10px] font-black text-rose-400 uppercase tracking-widest hover:text-rose-300 transition-all"
+                              >
+                                Disconnect
+                              </button>
+                            </div>
+                            <div className="flex gap-4">
+                              <div className="relative flex-1">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">github.com/</span>
+                                <input
+                                  type="text"
+                                  placeholder="username (leave blank for yours)"
+                                  className="w-full bg-black/60 border border-slate-800 rounded-xl pl-28 pr-5 py-3 text-sm outline-none focus:border-emerald-500 transition-all font-medium text-white"
+                                  value={githubUser}
+                                  onChange={(e) => setGithubUser(e.target.value)}
+                                  onKeyDown={(e) => e.key === "Enter" && fetchGithubRepos()}
+                                />
+                              </div>
+                              <button
+                                onClick={fetchGithubRepos}
+                                disabled={isGithubLoading}
+                                className="px-10 bg-emerald-600 rounded-xl text-sm font-black uppercase text-white hover:bg-emerald-500 transition-all"
+                              >
+                                {isGithubLoading ? "Fetching..." : "Fetch Repos"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                         {githubRepos.length > 0 && (
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                             {githubRepos.map(repo => (

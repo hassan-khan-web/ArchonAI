@@ -13,7 +13,7 @@ class RepositoryBase(BaseModel):
     url: HttpUrl
 
 class RepositoryCreate(RepositoryBase):
-    pass
+    github_token: Optional[str] = None
 
 class RepositoryUpdate(BaseModel):
     status: Optional[str] = None

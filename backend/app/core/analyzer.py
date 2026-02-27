@@ -50,6 +50,9 @@ class RepositoryAnalyzer:
         self._log("Phase Epsilon: Calculating final engineering maturity...")
         self._calculate_final_score()
         
+        self._log("Phase Eta: Deep Infrastructure Audit (Config Hardening)...")
+        self._run_layer8_infra_deep_audit()
+        
         self._log("Phase Theta: Generating actionable transformation roadmap...")
         self._run_layer4_actionable_roadmap()
         
@@ -521,8 +524,8 @@ class RepositoryAnalyzer:
 
         # 1. Collect representative file samples for the LLM
         samples = []
-        important_extensions = [".py", ".js", ".ts", ".go", ".tf"]
-        important_filenames = ["Dockerfile", "docker-compose.yml", "package.json", "requirements.txt"]
+        important_extensions = [".py", ".js", ".ts", ".go", ".tf", ".conf", ".htaccess"]
+        important_filenames = ["Dockerfile", "docker-compose.yml", "package.json", "requirements.txt", "nginx.conf", ".env"]
         
         for root, _, files in os.walk(self.repo_path):
             if any(x in root for x in [".git", "node_modules", "__pycache__"]):
@@ -629,3 +632,63 @@ class RepositoryAnalyzer:
             "nodes": nodes[:50], # Limit for UI performance
             "links": links[:100]
         }
+
+    def _run_layer8_infra_deep_audit(self):
+        """Layer 8: Audit configuration files for security and performance."""
+        for root, _, files in os.walk(self.repo_path):
+            if any(x in root for x in [".git", "node_modules"]):
+                continue
+            
+            for file in files:
+                file_path = os.path.join(root, file)
+                
+                # Nginx Audit
+                if file in ["nginx.conf", "default.conf"] or file.endswith(".conf"):
+                    try:
+                        with open(file_path, 'r', errors='ignore') as f:
+                            content = f.read()
+                            
+                            # Security Headers
+                            if "add_header Strict-Transport-Security" not in content:
+                                self.security_findings.append({
+                                    "type": "Infrastructure Gap", "severity": "MEDIUM", "label": "Missing HSTS",
+                                    "file": os.path.relpath(file_path, self.repo_path),
+                                    "description": "Nginx config missing HSTS header. Connections can be downgraded to HTTP."
+                                })
+                            if "add_header Content-Security-Policy" not in content:
+                                self.security_findings.append({
+                                    "type": "Infrastructure Gap", "severity": "MEDIUM", "label": "Missing CSP",
+                                    "file": os.path.relpath(file_path, self.repo_path),
+                                    "description": "Missing Content-Security-Policy. Vulnerable to XSS/Injection."
+                                })
+                            
+                            # SSL Audit
+                            if re.search(r"ssl_protocols.*TLSv1(\.1)?", content):
+                                self.security_findings.append({
+                                    "type": "Security Risk", "severity": "HIGH", "label": "Legacy TLS Protocol",
+                                    "file": os.path.relpath(file_path, self.repo_path),
+                                    "description": "Config allows TLS 1.0/1.1. These are deprecated and insecure."
+                                })
+                            
+                            # Performance Audit
+                            if "gzip on" not in content:
+                                self.roadmap.append({
+                                    "title": "Enable Gzip Compression",
+                                    "description": "Nginx compression is disabled. This increases bandwidth usage and page load times.",
+                                    "action": "Add 'gzip on;' to your server or http block.",
+                                    "guide": "Set `gzip_types text/plain text/css application/json;` for optimal savings."
+                                })
+                    except: pass
+
+                # Apache Audit
+                if file in [".htaccess", "httpd.conf"]:
+                    try:
+                        with open(file_path, 'r', errors='ignore') as f:
+                            content = f.read()
+                            if "Header set Strict-Transport-Security" not in content:
+                                self.security_findings.append({
+                                    "type": "Infrastructure Gap", "severity": "MEDIUM", "label": "Missing HSTS (Apache)",
+                                    "file": os.path.relpath(file_path, self.repo_path),
+                                    "description": "Apache config missing HSTS. Use 'Header set Strict-Transport-Security' to fix."
+                                })
+                    except: pass

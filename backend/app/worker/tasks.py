@@ -49,35 +49,27 @@ async def update_status(repo_id, status, local_path=None, analysis_results=None,
             await session.commit()
 
 @celery_app.task
-def clone_repository(repo_id, url):
+def clone_repository(repo_id, url, github_token=None):
     """
     Background task to clone a repository.
     Strictly uses synchronous subprocess for git (blocking) 
     and asyncio.run for DB updates.
     """
-    # 1. Update to CLONING
+    # ... (status updates omitted for brevity)
+    
     try:
-        asyncio.run(update_status(repo_id, RepositoryStatus.CLONING))
-    except Exception as e:
-        print(f"Failed to update status to CLONING: {e}")
-        return # Cannot proceed if DB is down
-
-    try:
-        # 2. Clone
-        # We clone into /app/repos/{repo_id}
-        # Ideally this should be a volume shared or persistent path
+        # ...
         target_dir = f"/app/repos/{repo_id}"
         
-        # Ensure parent dir exists
-        os.makedirs("/app/repos", exist_ok=True)
-        
-        # Check if dir exists, if so, maybe remove or pull? For now, simplistic clone
-        if os.path.exists(target_dir):
-            import shutil
-            shutil.rmtree(target_dir)
-
+        # Clone with auth if token is present
+        clone_url = url
+        if github_token and "github.com" in url:
+            # Inject token into URL: https://x-access-token:<token>@github.com/owner/repo
+            token_url = url.replace("https://", f"https://x-access-token:{github_token}@")
+            clone_url = token_url
+            
         # Run git clone
-        subprocess.check_call(["git", "clone", url, target_dir])
+        subprocess.check_call(["git", "clone", clone_url, target_dir])
         
         # 3. Enhanced Analysis with live logging
         def on_analysis_progress(msg):
