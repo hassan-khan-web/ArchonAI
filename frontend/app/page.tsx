@@ -30,6 +30,8 @@ import {
   Cpu,
   Layers,
   Sparkles,
+  Github,
+  HardDrive,
   GitCommit
 } from "lucide-react";
 
