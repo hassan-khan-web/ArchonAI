@@ -15,64 +15,54 @@ class ArchonBrain:
             self.client = None
             print("Warning: GROQ_API_KEY not found. Semantic Audit will be disabled.")
 
-    def analyze_repository(self, project_context: Dict[str, Any], file_samples: List[Dict[str, str]]) -> Dict[str, Any]:
-        """
-        Deep semantic analysis of the repository using Groq LLM.
-        """
+    async def analyze_repository(self, context_summary: str, repo_id: str, scores: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Orchestrate LLM analysis for a repository."""
         if not self.client:
             return {"error": "Groq client not initialized (API Key missing)."}
 
-        # Construct the context prompt
-        context_summary = f"""
-PROJECT SUMMARY:
-- Stack: {project_context.get('stack', [])}
-- Modularity Score: {project_context.get('modularity', 0)}/100
-- Concerns Separation: {project_context.get('concerns_separation', 'Unknown')}
-- Standards Check: {project_context.get('standards', {})}
-- Security Findings: {len(project_context.get('security_findings', []))} issues detected.
-
-CORE ARCHITECTURE FILES (Samples):
-"""
-        for sample in file_samples:
-            file_content = str(sample.get('content', ''))
-            context_summary += f"\n--- FILE: {sample['path']} ---\n{file_content[:2000]}\n"
+        overall_score = scores.get("overall_score", "Unknown") if scores else "Unknown"
+        score_breakdown = scores.get("score_breakdown", {}) if scores else {}
 
         prompt = f"""
-You are "The Senior Staff Architect" at ArchonAI, known for providing board-ready technical audits. 
-Your task is to perform an exhaustive Semantic Audit of the following project.
+You are "The Senior Global Architect" at ArchonAI. Your mission is to provide an exhaustive, high-density technical audit from A to Z. 
 
+PROJECT CONTEXT:
 {context_summary}
 
+AUDIT METRICS:
+Overall Score: {overall_score}/100
+Breakdown: {score_breakdown}
+
 INSTRUCTIONS:
-1. REVIEW the code for high-level architectural integrity, design patterns (or lack thereof), and semantic security risks that static tools miss.
-2. EXECUTIVE SUMMARY: Provide a 3-paragraph professional assessment. Each paragraph must be at least 4-5 sentences long.
-   - Paragraph 1: Detailed Overall architectural health and structural integrity.
-   - Paragraph 2: Comprehensive Tech stack maturity, parity, and modernization level.
-   - Paragraph 3: Specific Strategic outlook and long-term scaling advice.
-3. TECHNICAL DEBT: Identify exactly 4 critical debt items. For each, specify:
-   - Area (e.g., Domain Logic, Data Persistency, Security Layer)
-   - Detailed Issue (be granular, mention specific files or patterns where possible)
-   - Business Impact (explain directly how this affects the company's bottom line or engineering velocity)
-4. ARCHITECTURAL PIVOT: Suggest one transformative refactoring or infrastructure shift that would move this project towards "Enterprise" grade. Be highly detailed.
-5. ADDITIONAL TECH STACK: Use your knowledge to identify any additional frameworks, libraries, or tools mentioned in the code that the static scan might have missed, and categorize them.
-6. TECH USAGE: For THE ENTIRE tech stack (including what I provided in project_summary), provide a brief (1-sentence) explanation of how it is being used in this specific project.
-7. INFRASTRUCTURE AUDIT: If Nginx, Apache, or Docker configuration files are present in the samples, perform a deep dive into their security and performance profile. Identify missing headers or legacy protocols.
+1. REVIEW (A to Z): Provide a comprehensive professional assessment. Do not mention the AI model or any internal engine names.
+   - Paragraph 1: Detailed audit of the current state of the codebase. Covering everything from structure to parity.
+   - Paragraph 2: SCORE JUSTIFICATION. Explain specifically why the score of {overall_score} was assigned. Reference the strengths and the specific penalties that influenced it.
+   - Paragraph 3: Strategic vision and production readiness assessment.
+2. ENGINEERING ROADMAP: Provide a list of exactly 4 detailed engineering evolution steps. Each step must be a full paragraph (4-5 sentences) describing what technical updates are required and exactly what tools/libraries the developer should use to implement them.
+3. SUGGESTED ACTION: One major transformative shift presented as a logical, detailed recommendation paragraph. This is a core architectural advice for the user.
+4. TECH STACK NOTES: For the detected tech stack, provide a brief (1-2 sentences) note for EACH specific tool/library, explaining exactly where and how it is being utilized in this specific project.
+5. NEURAL DEBT AUDIT: Identify exactly 4 critical debt items. For each, provide an exhaustive paragraph that covers the Area, the precise technical Issue, and the long-term Business Impact. Do not truncate; be detailed.
+6. ARCHITECTURAL GRAPH EVALUATION: Provide a single paragraph evaluating the dependency relationships and modularity of the graph. This will be displayed below the graph visualization.
+7. NO SNIPPETS: Use plain, professional English. No code blocks or snippets in textual fields.
 
 OUTPUT FORMAT (JSON):
 {{
-    "executive_summary": "...",
-    "technical_debt": [
-        {{"area": "...", "issue": "...", "impact": "..."}}
+    "executive_summary": ["Paragraph 1...", "Paragraph 2...", "Paragraph 3..."],
+    "score_justification": "Detailed explanation...",
+    "engineering_roadmap": [
+        {{"title": "...", "detail": "Full paragraph..."}}
     ],
-    "architectural_pivot": {{
+    "suggested_action": {{
         "title": "...",
-        "description": "...",
-        "impact": "..."
+        "paragraph": "..."
     }},
-    "tech_stack_usage": {{
-        "TechName": "Brief usage explanation..."
+    "tech_stack_notes": {{
+        "ToolName": "Brief note on location/usage..."
     }},
-    "persona": "The Global Staff Architect"
+    "technical_debt": [
+        {{"title": "...", "paragraph": "Exhaustive paragraph..."}}
+    ],
+    "graph_evaluation": "Detailed paragraph..."
 }}
 """
 
@@ -94,4 +84,7 @@ OUTPUT FORMAT (JSON):
             )
             return json.loads(chat_completion.choices[0].message.content)
         except Exception as e:
-            return {"error": f"LLM analysis failed: {str(e)}"}
+            error_msg = str(e)
+            if "413" in error_msg or "rate_limit_exceeded" in error_msg:
+                return {"error": "Project context is too large for the current AI tier. Reducing the number of files or upgrading your Groq plan may help."}
+            return {"error": f"LLM analysis failed: {error_msg}"}

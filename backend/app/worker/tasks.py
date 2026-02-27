@@ -74,16 +74,25 @@ def clone_repository(repo_id, url, github_token=None):
         # 3. Enhanced Analysis with live logging
         def on_analysis_progress(msg):
             try:
-                # We need to run the async update in a sync context
-                # Since we are in a thread/process, we use a new loop or the existing one
-                asyncio.run(update_status(repo_id, RepositoryStatus.CLONING, log_message=msg))
+                # Use the current event loop if it's already running
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(update_status(repo_id, RepositoryStatus.CLONING, log_message=msg))
+                else:
+                    asyncio.run(update_status(repo_id, RepositoryStatus.CLONING, log_message=msg))
             except Exception as e:
-                print(f"Failed to log progress: {e}")
+                # Fallback: create a new loop if get_event_loop fails
+                try:
+                    new_loop = asyncio.new_event_loop()
+                    new_loop.run_until_complete(update_status(repo_id, RepositoryStatus.CLONING, log_message=msg))
+                    new_loop.close()
+                except:
+                    print(f"Failed to log progress: {e}")
 
         asyncio.run(update_status(repo_id, RepositoryStatus.CLONING, log_message="System: Repository cloned. Starting analysis engine..."))
         
         analyzer = RepositoryAnalyzer(target_dir, on_progress=on_analysis_progress)
-        analysis_results = analyzer.analyze()
+        analysis_results = asyncio.run(analyzer.analyze())
         
         print(f"Analysis for {repo_id}: Score {analysis_results.get('overall_score')}")
 

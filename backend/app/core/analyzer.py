@@ -38,7 +38,7 @@ class RepositoryAnalyzer:
         if self.on_progress is not None and callable(self.on_progress):
             self.on_progress(message)
 
-    def analyze(self) -> Dict[str, Any]:
+    async def analyze(self) -> Dict[str, Any]:
         """Run all analysis layers."""
         self._log("Phase Alpha: Initiating deep static scan...")
         self._run_layer1_static_scan()
@@ -51,15 +51,13 @@ class RepositoryAnalyzer:
         
         self._log("Phase Delta: Auditing security layers and secrets...")
         self._run_layer5_security_scan()
-
-        self._log("Phase Zeta: Running Deep Semantic Audit (AI Architect)...")
-        self._run_layer6_semantic_analysis()
         
         self._log("Phase Eta: Deep Infrastructure Audit (Config Hardening)...")
         self._run_layer8_infra_deep_audit()
         
-        self._log("Phase Theta: Generating actionable transformation roadmap...")
-        self._run_layer4_actionable_roadmap()
+        # The deterministic roadmap generation is removed as AI will handle it.
+        # self._log("Phase Theta: Generating actionable transformation roadmap...")
+        # self._run_layer4_actionable_roadmap()
 
         self._log("Phase Iota: Calculating deterministic code complexity (AST)...")
         self._run_layer9_complexity_analysis()
@@ -70,10 +68,13 @@ class RepositoryAnalyzer:
         self._log("Phase Lambda: Conducting SecOps Enterprise Audit (SSL/DNS)...")
         self._run_layer11_secops_audit()
         
-        self._calculate_final_score() # Calculate after all layers are done
-
         self._log("Phase Mu: Mapping architectural dependency graph...")
         self._run_layer7_dependency_graph()
+
+        self._calculate_final_score() # Calculate BEFORE AI analysis so we can pass it to the brain
+        
+        self._log("Phase Zeta: Running Deep Semantic Audit (AI Architect)...")
+        await self._run_layer6_semantic_analysis()
         
         self._log("Analysis Complete.")
         
@@ -399,80 +400,81 @@ class RepositoryAnalyzer:
              "duplication": -dup_penalty
         }
 
-    def _run_layer4_actionable_roadmap(self):
-        """Layer 4: Generate 'The Transformation' actionable roadmap."""
-        static = self.static_findings
-        struct = self.structural_findings
-        stds = static.get("standards", {})
-        stack = static.get("stack", [])
+    # The deterministic _run_layer4_actionable_roadmap is removed as AI will handle it.
+    # def _run_layer4_actionable_roadmap(self):
+    #     """Layer 4: Generate 'The Transformation' actionable roadmap."""
+    #     static = self.static_findings
+    #     struct = self.structural_findings
+    #     stds = static.get("standards", {})
+    #     stack = static.get("stack", [])
         
-        # 1. Database Migration Recommendation
-        if any(s in stack for s in ["FastAPI", "Node.js/NPM", "Python"]):
-            # We don't have explicit DB detection yet, but we can infer based on context
-            # In a real scenario, we'd scan for sqlite3.connect or similar
-            self.roadmap.append({
-                "title": "High-Concurrency Database Migration",
-                "description": "We noticed you are using standard drivers that often default to local storage. To reach Production Grade, we recommend migrating to PostgreSQL.",
-                "action": "Add a Redis caching layer to offload expensive queries and improve throughput.",
-                "guide": "Phase-1 Migration: Use `SQLAlchemy` or `Prisma` with a PostgreSQL provider."
-            })
+    #     # 1. Database Migration Recommendation
+    #     if any(s in stack for s in ["FastAPI", "Node.js/NPM", "Python"]):
+    #         # We don't have explicit DB detection yet, but we can infer based on context
+    #         # In a real scenario, we'd scan for sqlite3.connect or similar
+    #         self.roadmap.append({
+    #             "title": "High-Concurrency Database Migration",
+    #             "description": "We noticed you are using standard drivers that often default to local storage. To reach Production Grade, we recommend migrating to PostgreSQL.",
+    #             "action": "Add a Redis caching layer to offload expensive queries and improve throughput.",
+    #             "guide": "Phase-1 Migration: Use `SQLAlchemy` or `Prisma` with a PostgreSQL provider."
+    #         })
 
-        # 2. Testing Expansion
-        if not static.get("testing", {}).get("detected"):
-            self.roadmap.append({
-                "title": "Automated Quality Assurance",
-                "description": "Zero tests detected. This prevents 'Production' maturity grading.",
-                "action": "Implement a core testing suite to cover business logic.",
-                "guide": f"Run `touch tests/test_core.py` and implement your first integration test using `pytest`."
-            })
+    #     # 2. Testing Expansion
+    #     if not static.get("testing", {}).get("detected"):
+    #         self.roadmap.append({
+    #             "title": "Automated Quality Assurance",
+    #             "description": "Zero tests detected. This prevents 'Production' maturity grading.",
+    #             "action": "Implement a core testing suite to cover business logic.",
+    #             "guide": f"Run `touch tests/test_core.py` and implement your first integration test using `pytest`."
+    #         })
 
-        # 3. Infrastructure Stability
-        if not stds.get("has_docker"):
-            self.roadmap.append({
-                "title": "Deployment Consistency",
-                "description": "Environment varies between machines. Scaling will be difficult.",
-                "action": "Containerize the application to ensure 'it works on my machine' means 'it works in production'.",
-                "guide": "Create a `Dockerfile` using `python:3.11-slim` or `node:20-alpine` as a base."
-            })
+    #     # 3. Infrastructure Stability
+    #     if not stds.get("has_docker"):
+    #         self.roadmap.append({
+    #             "title": "Deployment Consistency",
+    #             "description": "Environment varies between machines. Scaling will be difficult.",
+    #             "action": "Containerize the application to ensure 'it works on my machine' means 'it works in production'.",
+    #             "guide": "Create a `Dockerfile` using `python:3.11-slim` or `node:20-alpine` as a base."
+    #         })
 
-        # 4. Security Remediation
-        critical_leaks = [f for f in self.security_findings if f["severity"] == "CRITICAL"]
-        if critical_leaks:
-            self.roadmap.insert(0, {
-                "title": "CRITICAL: Secret Rotation",
-                "description": f"Found {len(critical_leaks)} potential hardcoded credentials. These are exposed in Git history.",
-                "action": "Immediately revoke and rotate the affected keys.",
-                "guide": "Rotate leaked credentials and add affected files to `.gitignore` or use Vault/Secrets Manager."
-            })
+    #     # 4. Security Remediation
+    #     critical_leaks = [f for f in self.security_findings if f["severity"] == "CRITICAL"]
+    #     if critical_leaks:
+    #         self.roadmap.insert(0, {
+    #             "title": "CRITICAL: Secret Rotation",
+    #             "description": f"Found {len(critical_leaks)} potential hardcoded credentials. These are exposed in Git history.",
+    #             "action": "Immediately revoke and rotate the affected keys.",
+    #             "guide": "Rotate leaked credentials and add affected files to `.gitignore` or use Vault/Secrets Manager."
+    #         })
 
-        high_vulns = [f for f in self.security_findings if f["severity"] == "HIGH"]
-        if high_vulns:
-            # Code Injection
-            if any(v["type"] == "Vulnerability (SAST)" for v in high_vulns):
-                self.roadmap.append({
-                    "title": "Code Injection Hardening",
-                    "description": "SAST scan identified dangerous coding patterns (eval/exec/SQLi).",
-                    "action": "Refactor dynamic code execution to use parameterized inputs or secure alternatives.",
-                    "guide": "Replace `eval()` with safe parsing and use parameterized queries for SQL statements."
-                })
+    #     high_vulns = [f for f in self.security_findings if f["severity"] == "HIGH"]
+    #     if high_vulns:
+    #         # Code Injection
+    #         if any(v["type"] == "Vulnerability (SAST)" for v in high_vulns):
+    #             self.roadmap.append({
+    #                 "title": "Code Injection Hardening",
+    #                 "description": "SAST scan identified dangerous coding patterns (eval/exec/SQLi).",
+    #                 "action": "Refactor dynamic code execution to use parameterized inputs or secure alternatives.",
+    #                 "guide": "Replace `eval()` with safe parsing and use parameterized queries for SQL statements."
+    #             })
             
-            # Dependencies
-            if any(v["type"] == "Vulnerable Dependency" for v in high_vulns):
-                self.roadmap.append({
-                    "title": "Standardize Dependencies",
-                    "description": "One or more packages in your manifest have known vulnerabilities.",
-                    "action": "Audit and upgrade core dependencies to stable, patched versions.",
-                    "guide": "Run `pip install --upgrade requests flask` or `npm update` to resolve CVEs."
-                })
+    #         # Dependencies
+    #         if any(v["type"] == "Vulnerable Dependency" for v in high_vulns):
+    #             self.roadmap.append({
+    #                 "title": "Standardize Dependencies",
+    #                 "description": "One or more packages in your manifest have known vulnerabilities.",
+    #                 "action": "Audit and upgrade core dependencies to stable, patched versions.",
+    #                 "guide": "Run `pip install --upgrade requests flask` or `npm update` to resolve CVEs."
+    #             })
 
-        # 4. Architectural Transformation
-        if struct.get("concerns_separation") == "Low (Monolithic)":
-            self.roadmap.append({
-                "title": "Modular Transformation",
-                "description": "Your code is currently monolithic. This leads to high maintenance costs.",
-                "action": "Refactor into a Domain-Driven Design (DDD) layout.",
-                "guide": "Extract business logic into a `/services` layer and keep `/api` for routing only."
-            })
+    #     # 4. Architectural Transformation
+    #     if struct.get("concerns_separation") == "Low (Monolithic)":
+    #         self.roadmap.append({
+    #             "title": "Modular Transformation",
+    #             "description": "Your code is currently monolithic. This leads to high maintenance costs.",
+    #             "action": "Refactor into a Domain-Driven Design (DDD) layout.",
+    #             "guide": "Extract business logic into a `/services` layer and keep `/api` for routing only."
+    #         })
 
     def _run_layer5_security_scan(self):
         """Layer 5: Detect secrets, vulnerable deps, and code injection."""
@@ -553,54 +555,94 @@ class RepositoryAnalyzer:
                 except Exception:
                     pass
 
-    def _run_layer6_semantic_analysis(self):
+    async def _run_layer6_semantic_analysis(self):
         """Layer 6: Deep Semantic Analysis using Groq LLM."""
         if not self.brain.client:
             self._log("AI Engine skipped (Key missing).")
             return
 
-        # 1. Collect representative file samples for the LLM
-        samples = []
-        important_extensions = [".py", ".js", ".ts", ".go", ".tf", ".conf", ".htaccess"]
-        important_filenames = ["Dockerfile", "docker-compose.yml", "package.json", "requirements.txt", "nginx.conf", ".env"]
-        
-        for root, _, files in os.walk(self.repo_path):
-            if any(x in root for x in [".git", "node_modules", "__pycache__"]):
-                continue
-            
-            for file in files:
-                is_important = any(file.endswith(ext) for ext in important_extensions) or file in important_filenames
-                if is_important:
-                    file_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(file_path, self.repo_path)
-                    
-                    if len(samples) < 15: 
-                        try:
-                            with open(file_path, 'r', errors='ignore') as f:
-                                # Read more content if it's an important file
-                                content = f.read(5000)
-                                samples.append({"path": rel_path, "content": content})
-                        except:
-                            pass
-
-        # 2. Prepare project context
+        # Prepare context for the brain, including dependency graph summary
         project_context = {
             "stack": self.static_findings.get("stack", []),
             "modularity": self.structural_findings.get("modularity_score", 0),
             "concerns_separation": self.structural_findings.get("concerns_separation", "Unknown"),
             "standards": self.static_findings.get("standards", {}),
-            "security_findings": self.security_findings
+            "security_findings": self.security_findings,
+            "dependency_graph_summary": getattr(self, "dependency_graph", {}).get("links", [])[:30], # Top relationships
+            "overall_score": self.overall_score
         }
 
-        # 3. Call Brain
-        self.ai_analysis = self.brain.analyze_repository(project_context, samples)
+        # 1. Collect representative file samples for the LLM
+        samples = []
+        total_chars = 0
+        max_chars = 28000  # Safety limit for Groq payload (approx 7-8k tokens)
+        
+        # Priority mapping for files that define architecture
+        priority_keywords = ["main", "app", "index", "settings", "config", "models", "schema", "routes", "controller"]
+        priority_files = ["Dockerfile", "docker-compose.yml", "package.json", "requirements.txt", "pyproject.toml", "next.config.js"]
 
-        # 4. Integrate AI findings into the structured critique if successful
+        all_candidate_files = []
+        for root, _, files in os.walk(self.repo_path):
+            if any(x in root for x in [".git", "node_modules", "__pycache__", "venv", ".venv"]): continue
+            for file in files:
+                file_path = os.path.join(root, file)
+                if any(file_path.endswith(ext) for ext in [".py", ".js", ".ts", ".tsx", ".go", ".tf", ".conf", ".yaml", ".yml"]) or file in priority_files:
+                    rel_path = os.path.relpath(file_path, self.repo_path)
+                    
+                    # Calculate priority score
+                    score = 0
+                    if file in priority_files: score += 100
+                    if any(kw in file.lower() for kw in priority_keywords): score += 50
+                    if rel_path.count("/") == 0: score += 20 # Root files usually important
+                    
+                    all_candidate_files.append({"path": rel_path, "abs": file_path, "score": score})
+
+        # Sort by priority score descending
+        all_candidate_files.sort(key=lambda x: x["score"], reverse=True)
+
+        for item in all_candidate_files:
+            if len(samples) >= 15: break 
+            if total_chars >= max_chars: break
+            
+            try:
+                with open(item["abs"], 'r', errors='ignore') as f:
+                    content = f.read(2000) # Reduced per-file limit to allow more files
+                    samples.append({"path": item["path"], "content": content})
+                    total_chars += len(content)
+            except: pass
+
+        # 2. Call Brain with scores for justification
+        scores_for_ai = {
+            "overall_score": self.overall_score,
+            "score_breakdown": self.score_breakdown
+        }
+        
+        # Build context summary from samples and other data
+        context_text = f"Project Metrics: {project_context}\n\nFile Samples:\n"
+        for s in samples:
+            context_text += f"\nFILE: {s['path']}\n{s['content']}\n"
+
+        if len(context_text) > max_chars: # Final safety truncate
+             context_text = context_text[:max_chars] + "\n... [TRUNCATED] ..."
+
+        try:
+            self.ai_analysis = await self.brain.analyze_repository(context_text, self.repo_path.split("/")[-1], scores=scores_for_ai)
+        except Exception as e:
+            self.ai_analysis = {"error": f"Internal Analysis Error: {str(e)}"}
+
+        # 3. Integrate AI findings
         if "error" not in self.ai_analysis:
-            self.structured_critique["executive_summary"] = self.ai_analysis.get("executive_summary", self.structured_critique["executive_summary"])
-            if self.ai_analysis.get("technical_debt"):
-                # Append AI debt items
-                self.structured_critique["technical_debt"].extend(self.ai_analysis["technical_debt"])
+            # Overwrite roadmap with detailed AI-generated one
+            if self.ai_analysis.get("engineering_roadmap"):
+                self.roadmap = self.ai_analysis["engineering_roadmap"]
+            
+            # Update structured critique
+            self.structured_critique["executive_summary"] = self.ai_analysis.get("executive_summary", [])
+            self.structured_critique["score_justification"] = self.ai_analysis.get("score_justification", "")
+            self.structured_critique["suggested_action"] = self.ai_analysis.get("suggested_action", {})
+            self.structured_critique["tech_stack_notes"] = self.ai_analysis.get("tech_stack_notes", {})
+            self.structured_critique["technical_debt"] = self.ai_analysis.get("technical_debt", [])
+            self.structured_critique["graph_evaluation"] = self.ai_analysis.get("graph_evaluation", "")
             
             # Retroactively update critique for backward compatibility
             self.critique = self.structured_critique["executive_summary"]

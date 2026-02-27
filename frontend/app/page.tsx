@@ -32,7 +32,8 @@ import {
   Sparkles,
   Github,
   HardDrive,
-  GitCommit
+  GitCommit,
+  AlertTriangle
 } from "lucide-react";
 
 // --- Types ---
@@ -129,6 +130,7 @@ export default function Dashboard() {
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [githubToken, setGithubToken] = useState<string | null>(null);
   const [isOAuthLoading, setIsOAuthLoading] = useState(false);
+  const [isGraphMaximized, setIsGraphMaximized] = useState(false);
 
   const selectedRepo = useMemo(() =>
     repositories.find(r => r.id === selectedRepoId) || null,
@@ -649,6 +651,18 @@ export default function Dashboard() {
                                       </div>
                                     </div>
 
+                                    {selectedRepo.analysis_results?.ai_analysis?.error && (
+                                      <div className="p-6 rounded-[2rem] bg-red-500/10 border border-red-500/20 mb-6">
+                                        <div className="flex items-center gap-3 text-red-400 mb-2">
+                                          <AlertTriangle size={20} />
+                                          <h4 className="text-sm font-black uppercase tracking-widest">Architectural Audit Warning</h4>
+                                        </div>
+                                        <p className="text-sm text-slate-400 leading-relaxed italic">
+                                          {selectedRepo.analysis_results.ai_analysis.error}. The report may be partially generated using fallback heuristics.
+                                        </p>
+                                      </div>
+                                    )}
+
                                     {selectedRepo.analysis_results?.ai_analysis && !selectedRepo.analysis_results.ai_analysis.error && (
                                       <div className="p-6 rounded-[2rem] bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 border border-emerald-400/20 relative overflow-hidden group">
                                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -658,72 +672,69 @@ export default function Dashboard() {
                                           <Sparkles size={16} className="animate-pulse" /> AI Architect Deep Review
                                         </h4>
                                         <div className="text-base text-white/90 leading-relaxed font-medium mb-6 relative z-10 space-y-4 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
-                                          {(typeof selectedRepo.analysis_results.ai_analysis.executive_summary === 'string'
-                                            ? selectedRepo.analysis_results.ai_analysis.executive_summary.split('\n\n')
-                                            : Object.values(selectedRepo.analysis_results.ai_analysis.executive_summary)
-                                          ).map((para, i) => (
-                                            <p key={i}>{para as string}</p>
-                                          ))}
+                                          {selectedRepo.analysis_results.ai_analysis.executive_summary && Array.isArray(selectedRepo.analysis_results.ai_analysis.executive_summary)
+                                            ? selectedRepo.analysis_results.ai_analysis.executive_summary.map((para: string, i: number) => (
+                                              <p key={i}>{para}</p>
+                                            ))
+                                            : <p>{selectedRepo.analysis_results.ai_analysis.executive_summary as string || "Architectural review narrative is being finalized..."}</p>
+                                          }
                                         </div>
 
-                                        {selectedRepo.analysis_results.ai_analysis.architectural_pivot && (
+                                        {/* Score Justification */}
+                                        {(selectedRepo.analysis_results.ai_analysis as any).score_justification && (
+                                          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-2 mb-4 relative z-10">
+                                            <div className="flex items-center gap-2 text-slate-400 mb-1">
+                                              <ShieldCheck size={16} />
+                                              <span className="text-sm font-black uppercase tracking-wider">Score Justification</span>
+                                            </div>
+                                            <p className="text-base text-slate-400 leading-relaxed italic">
+                                              {(selectedRepo.analysis_results.ai_analysis as any).score_justification}
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {/* Suggested Action */}
+                                        {(selectedRepo.analysis_results.ai_analysis as any).suggested_action && (
                                           <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-400/30 space-y-2 mb-4 relative z-10">
                                             <div className="flex items-center gap-2 text-emerald-400 mb-1">
                                               <RefreshCw size={16} />
                                               <span className="text-sm font-black uppercase tracking-wider text-emerald-300">Suggested Action</span>
                                             </div>
-                                            <h5 className="text-lg font-black text-white uppercase">{selectedRepo.analysis_results.ai_analysis.architectural_pivot.title}</h5>
-                                            <div className="text-base text-slate-400 leading-relaxed space-y-2">
-                                              {(typeof selectedRepo.analysis_results.ai_analysis.architectural_pivot.description === 'string'
-                                                ? selectedRepo.analysis_results.ai_analysis.architectural_pivot.description.split('\n\n')
-                                                : Object.values(selectedRepo.analysis_results.ai_analysis.architectural_pivot.description)
-                                              ).map((p, i) => (
-                                                <p key={i}>{p as string}</p>
-                                              ))}
-                                            </div>
+                                            <h5 className="text-lg font-black text-white uppercase">{(selectedRepo.analysis_results.ai_analysis as any).suggested_action.title}</h5>
+                                            <p className="text-base text-slate-400 leading-relaxed">
+                                              {(selectedRepo.analysis_results.ai_analysis as any).suggested_action.paragraph}
+                                            </p>
                                           </div>
                                         )}
 
                                         <div className="flex items-center gap-2">
-                                          <span className="text-xs text-slate-500 uppercase tracking-widest">Model:</span>
-                                          <span className="text-xs font-black text-white uppercase bg-white/5 px-3 py-1 rounded-md border border-white/10">
-                                            Groq/Llama-3.3-70B
+                                          <span className="text-xs text-slate-500 uppercase tracking-widest italic opacity-50">
+                                            Authenticated Digital Audit • ArchonAI v1.1
                                           </span>
                                         </div>
                                       </div>
                                     )}
 
-                                    {/* Tech Highlights (Quick View) */}
-                                    {selectedRepo.analysis_results?.static_scan?.categories && (
-                                      <div className="space-y-4">
-                                        <h4 className="text-sm font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
-                                          <Layers size={16} /> Tech Highlights
-                                        </h4>
-                                        <div className="flex flex-wrap gap-3">
-                                          {(Object.values(selectedRepo.analysis_results.static_scan.categories).flat() as string[]).slice(0, 8).map((tech, i) => (
-                                            <div key={i} className="px-4 py-2 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 flex items-center gap-2 group hover:border-indigo-400/30 transition-all">
-                                              <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_indigo]" />
-                                              <span className="text-[11px] font-black text-white uppercase tracking-wider">{tech}</span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
 
-                                    {/* Roadmap Steps */}
+
+                                    {/* Engineering Roadmap */}
                                     {selectedRepo.analysis_results?.actionable_roadmap && (
                                       <div className="space-y-4 pb-12">
                                         <h4 className="text-sm font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2">
-                                          <GitCommit size={16} /> Engineering Roadmap
+                                          <GitCommit size={16} /> Detailed Engineering Roadmap
                                         </h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                          {selectedRepo.analysis_results.actionable_roadmap.slice(0, 4).map((step, idx) => (
-                                            <div key={idx} className="p-4 rounded-2xl bg-emerald-600/5 border border-emerald-500/20 space-y-2">
-                                              <h5 className="text-sm font-black text-white uppercase">{step.title}</h5>
-                                              <div className="flex gap-2 items-center">
-                                                <div className="h-1 w-1 bg-emerald-400 rounded-full" />
-                                                <p className="text-sm text-emerald-400 font-bold">{step.action}</p>
+                                        <div className="grid grid-cols-1 gap-6">
+                                          {selectedRepo.analysis_results.actionable_roadmap.map((step: any, idx: number) => (
+                                            <div key={idx} className="p-6 rounded-[2rem] bg-emerald-600/5 border border-emerald-500/20 space-y-4">
+                                              <div className="flex items-center gap-3">
+                                                <div className="h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-xs font-black text-emerald-400">
+                                                  {idx + 1}
+                                                </div>
+                                                <h5 className="text-lg font-black text-white uppercase tracking-tight">{step.title}</h5>
                                               </div>
+                                              <p className="text-base text-slate-400 leading-relaxed font-medium pl-11">
+                                                {step.detail || step.action || step.description}
+                                              </p>
                                             </div>
                                           ))}
                                         </div>
@@ -740,35 +751,22 @@ export default function Dashboard() {
                                     exit={{ opacity: 0, y: -10 }}
                                     className="space-y-6"
                                   >
-                                    {selectedRepo.analysis_results?.static_scan?.categories && (
+                                    {((selectedRepo.analysis_results as any)?.ai_analysis?.tech_stack_notes) && (
                                       <div className="p-6 rounded-[2rem] bg-indigo-500/5 border border-indigo-500/20 space-y-6">
                                         <h4 className="text-sm font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2">
-                                          <Layers size={16} /> Comprehensive Tech Stack Breakdown
+                                          <Layers size={16} /> Context-Aware Tech Stack Audit
                                         </h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                          {Object.entries(selectedRepo.analysis_results.static_scan.categories).map(([category, techs]) => (
-                                            (techs as string[]).length > 0 && (
-                                              <div key={category} className="p-5 rounded-2xl bg-black/20 border border-white/5 space-y-4 hover:border-emerald-500/30 transition-all">
-                                                <div className="flex items-center justify-between">
-                                                  <h5 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">{category}</h5>
-                                                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                                                </div>
-                                                <div className="space-y-3">
-                                                  {(techs as string[]).map(tech => (
-                                                    <div key={tech} className="space-y-1">
-                                                      <span className="px-3 py-1.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-[10px] font-black text-emerald-400 uppercase tracking-tight block w-fit">
-                                                        {tech}
-                                                      </span>
-                                                      {selectedRepo.analysis_results?.ai_analysis?.tech_stack_usage?.[tech] && (
-                                                        <p className="text-[11px] text-slate-500 leading-tight pl-1 italic">
-                                                          {selectedRepo.analysis_results.ai_analysis.tech_stack_usage[tech]}
-                                                        </p>
-                                                      )}
-                                                    </div>
-                                                  ))}
-                                                </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                          {Object.entries((selectedRepo.analysis_results as any).ai_analysis.tech_stack_notes).map(([tool, note]) => (
+                                            <div key={tool} className="p-6 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 space-y-3 hover:border-indigo-400/30 transition-all">
+                                              <div className="flex items-center justify-between">
+                                                <h5 className="text-base font-black text-white uppercase tracking-tight">{tool}</h5>
+                                                <div className="h-2 w-2 rounded-full bg-indigo-500 shadow-[0_0_8px_indigo]" />
                                               </div>
-                                            )
+                                              <p className="text-sm text-slate-400 leading-relaxed font-medium">
+                                                {note as string}
+                                              </p>
+                                            </div>
                                           ))}
                                         </div>
                                       </div>
@@ -789,21 +787,23 @@ export default function Dashboard() {
                                         <h4 className="text-sm font-black uppercase tracking-widest text-amber-500 flex items-center gap-2">
                                           <Activity size={16} /> Neural Debt Audit
                                         </h4>
-                                        <div className="grid grid-cols-1 gap-3">
-                                          {selectedRepo.analysis_results.ai_analysis.technical_debt.map((d: any, idx: number) => (
-                                            <div key={idx} className="p-6 rounded-[1.5rem] bg-amber-500/5 border border-amber-500/10 flex items-start gap-6 group hover:border-amber-500/40 transition-all">
-                                              <div className="h-10 w-10 shrink-0 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                                                <AlertCircle size={20} className="text-amber-400" />
-                                              </div>
-                                              <div className="min-w-0 flex-1">
-                                                <div className="flex items-center justify-between mb-2">
-                                                  <span className="text-[10px] font-black text-amber-500 uppercase px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 tracking-widest">
-                                                    {d.area}
-                                                  </span>
+                                        <div className="grid grid-cols-1 gap-4">
+                                          {(selectedRepo.analysis_results as any)?.ai_analysis?.technical_debt?.map((d: any, idx: number) => (
+                                            <div key={idx} className="p-8 rounded-[2rem] bg-amber-500/5 border border-amber-500/10 flex flex-col gap-4 group hover:border-amber-500/40 transition-all">
+                                              <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                  <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                                                    <AlertCircle size={20} className="text-amber-400" />
+                                                  </div>
+                                                  <h5 className="text-lg font-black text-white uppercase tracking-tight">{d.title}</h5>
                                                 </div>
-                                                <h5 className="text-lg font-black text-white uppercase mb-1">{d.issue}</h5>
-                                                <p className="text-sm text-slate-500 leading-relaxed font-medium">{d.impact}</p>
+                                                <span className="text-[10px] font-black text-amber-500 uppercase px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 tracking-widest">
+                                                  Critical Insight
+                                                </span>
                                               </div>
+                                              <p className="text-base text-slate-400 leading-relaxed font-medium pl-14">
+                                                {d.paragraph}
+                                              </p>
                                             </div>
                                           ))}
                                         </div>
@@ -818,11 +818,29 @@ export default function Dashboard() {
                                     initial={{ opacity: 0, scale: 0.98 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.98 }}
-                                    className="h-full min-h-[500px] w-full bg-slate-900/40 rounded-[2.5rem] border border-white/5 relative overflow-hidden p-8"
+                                    className="h-full min-h-[600px] w-full bg-slate-900/40 rounded-[2.5rem] border border-white/5 relative overflow-hidden p-8 flex flex-col gap-8"
                                   >
-                                    <h4 className="text-sm font-black uppercase tracking-widest text-emerald-500 mb-8 flex items-center gap-2 leading-none">
-                                      <Maximize2 size={16} /> Architectural Dependency Graph
-                                    </h4>
+                                    <div className="shrink-0">
+                                      <div className="flex items-center justify-between mb-2 leading-none">
+                                        <h4 className="text-sm font-black uppercase tracking-widest text-emerald-500 flex items-center gap-2">
+                                          <Maximize2 size={16} /> Architectural Dependency Graph
+                                        </h4>
+                                        <button
+                                          onClick={() => setIsGraphMaximized(true)}
+                                          className="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white"
+                                          title="Enlarge Graph"
+                                        >
+                                          <Maximize2 size={16} />
+                                        </button>
+                                      </div>
+                                      {(selectedRepo.analysis_results as any)?.ai_analysis?.graph_evaluation && (
+                                        <div className="p-6 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
+                                          <p className="text-sm text-emerald-100/80 leading-relaxed font-medium italic">
+                                            {(selectedRepo.analysis_results as any).ai_analysis.graph_evaluation}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
 
                                     <div className="relative h-[400px] w-full flex items-center justify-center">
                                       {(selectedRepo.analysis_results as any)?.dependency_graph?.nodes?.length > 0 ? (
@@ -911,7 +929,6 @@ export default function Dashboard() {
                       )}
                     </AnimatePresence>
                   </div>
-
                   {/* Right Pane: Repo List (Swapped) */}
                   <div className="w-80 flex flex-col gap-4 overflow-y-auto custom-scrollbar pl-2 shrink-0">
                     <div className="flex items-center justify-between mb-1 px-2">
@@ -959,14 +976,140 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Drawer Removed: Moved to Result Panel */}
-
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
       `}</style>
+
+      {/* Fullscreen Graph Modal */}
+      <AnimatePresence>
+        {isGraphMaximized && selectedRepo && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-[#05070a]/90 backdrop-blur-2xl"
+              onClick={() => setIsGraphMaximized(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 30 }}
+              className="relative w-[80vw] h-[80vh] bg-[#0b0f1a] border border-white/10 rounded-[4rem] shadow-2xl flex flex-col p-12 overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-8 shrink-0">
+                <div className="flex items-center gap-6">
+                  <div className="h-14 w-14 rounded-2xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center">
+                    <Maximize2 className="text-emerald-400" size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-black text-white uppercase tracking-tighter leading-none">Neural Dependency Matrix</h3>
+                    <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">{selectedRepo.name || selectedRepo.url.split('/').pop()}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsGraphMaximized(false)}
+                  className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-rose-500/20 hover:border-rose-500/30 hover:text-rose-400 transition-all active:scale-90"
+                >
+                  <X size={28} />
+                </button>
+              </div>
+
+              <div className="flex-1 bg-white/[0.02] border border-white/5 rounded-[3rem] relative overflow-hidden p-12">
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] bg-emerald-600/5 blur-[120px] rounded-full" />
+                </div>
+
+                <div className="relative h-full w-full">
+                  {(selectedRepo.analysis_results as any)?.dependency_graph?.nodes?.length > 0 ? (
+                    <div className="relative w-full h-full">
+                      <svg className="absolute inset-0 pointer-events-none opacity-40 h-full w-full">
+                        {(selectedRepo.analysis_results as any).dependency_graph.links.map((link: any, i: number) => {
+                          const sourceNode = (selectedRepo.analysis_results as any).dependency_graph.nodes.find((n: any) => n.id === link.source);
+                          const targetNode = (selectedRepo.analysis_results as any).dependency_graph.nodes.find((n: any) => n.id === link.target);
+                          if (!sourceNode || !targetNode) return null;
+
+                          const x1 = 10 + (link.source * 13) % 80;
+                          const y1 = 10 + (link.source * 17) % 80;
+                          const x2 = 10 + (link.target * 19) % 80;
+                          const y2 = 10 + (link.target * 23) % 80;
+
+                          return (
+                            <motion.line
+                              key={i}
+                              initial={{ pathLength: 0, opacity: 0 }}
+                              animate={{ pathLength: 1, opacity: 1 }}
+                              transition={{ delay: i * 0.01, duration: 1 }}
+                              x1={`${x1}%`} y1={`${y1}%`}
+                              x2={`${x2}%`} y2={`${y2}%`}
+                              stroke="rgba(16, 185, 129, 0.5)" strokeWidth="1.5" strokeDasharray="6 3"
+                            />
+                          );
+                        })}
+                      </svg>
+
+                      <div className="absolute inset-0">
+                        {(selectedRepo.analysis_results as any).dependency_graph.nodes.map((node: any, i: number) => (
+                          <motion.div
+                            key={node.id}
+                            initial={{ opacity: 0, scale: 0 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: i * 0.01 }}
+                            style={{
+                              left: `${10 + (node.id * 13) % 80}%`,
+                              top: `${10 + (node.id * 17) % 80}%`
+                            }}
+                            className="absolute -translate-x-1/2 -translate-y-1/2 p-4 bg-slate-900/90 border border-emerald-500/30 rounded-2xl backdrop-blur-md hover:border-emerald-400 group cursor-pointer transition-all z-20 hover:scale-110"
+                          >
+                            <div className="h-2 w-2 rounded-full bg-emerald-500 mb-2 group-hover:shadow-[0_0_12px_#10b981]" />
+                            <p className="text-xs font-black text-white group-hover:text-emerald-400 transition-colors uppercase tracking-tighter">{node.name}</p>
+                            <div className="mt-1 flex items-center gap-2">
+                              <span className="text-[8px] font-mono text-slate-500 truncate max-w-[120px]">{node.path}</span>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-full w-full flex flex-col items-center justify-center opacity-20">
+                      <Cpu size={80} className="mb-6 animate-pulse text-emerald-500" />
+                      <p className="text-xl font-black uppercase tracking-[0.5em]">Neural Link Offline</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-8 flex items-center justify-between px-4">
+                <div className="flex items-center gap-12">
+                  <div className="flex items-center gap-3">
+                    <div className="h-3 w-3 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Core Module</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="h-0.5 w-8 bg-emerald-500/40 border-t border-dashed border-emerald-500/60" />
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Dependency Vector</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-8">
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em]">Live Visualization</p>
+                    <p className="text-[10px] font-bold text-slate-600 italic">ArchonAI Neural Mapper v1.1.0</p>
+                  </div>
+                  <button
+                    onClick={() => setIsGraphMaximized(false)}
+                    className="px-10 py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/40"
+                  >
+                    Return to Canvas
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
