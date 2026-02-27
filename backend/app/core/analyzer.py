@@ -1,5 +1,10 @@
 import os
 import re
+import ast
+import hashlib
+import socket
+import ssl
+import datetime
 from typing import Dict, Any, List, Set, Optional, Callable
 from app.core.brain import ArchonBrain
 
@@ -24,6 +29,9 @@ class RepositoryAnalyzer:
             "technical_debt": [],
             "architect_persona": "The Pragmatic Senior"
         }
+        self.complexity_results: Dict[str, Any] = {}
+        self.duplication_results: Dict[str, Any] = {}
+        self.secops_results: Dict[str, Any] = {}
 
     def _log(self, message: str):
         self.logs.append(message)
@@ -47,16 +55,24 @@ class RepositoryAnalyzer:
         self._log("Phase Zeta: Running Deep Semantic Audit (AI Architect)...")
         self._run_layer6_semantic_analysis()
         
-        self._log("Phase Epsilon: Calculating final engineering maturity...")
-        self._calculate_final_score()
-        
         self._log("Phase Eta: Deep Infrastructure Audit (Config Hardening)...")
         self._run_layer8_infra_deep_audit()
         
         self._log("Phase Theta: Generating actionable transformation roadmap...")
         self._run_layer4_actionable_roadmap()
+
+        self._log("Phase Iota: Calculating deterministic code complexity (AST)...")
+        self._run_layer9_complexity_analysis()
         
-        self._log("Phase Iota: Mapping architectural dependency graph...")
+        self._log("Phase Kappa: Running DRY Audit (Code Duplication Scan)...")
+        self._run_layer10_duplication_scan()
+
+        self._log("Phase Lambda: Conducting SecOps Enterprise Audit (SSL/DNS)...")
+        self._run_layer11_secops_audit()
+        
+        self._calculate_final_score() # Calculate after all layers are done
+
+        self._log("Phase Mu: Mapping architectural dependency graph...")
         self._run_layer7_dependency_graph()
         
         self._log("Analysis Complete.")
@@ -73,6 +89,9 @@ class RepositoryAnalyzer:
             "score_breakdown": self.score_breakdown,
             "actionable_roadmap": self.roadmap,
             "security_findings": self.security_findings,
+            "complexity": self.complexity_results,
+            "duplication": self.duplication_results,
+            "secops": self.secops_results,
             "dependency_graph": getattr(self, "dependency_graph", {"nodes": [], "links": []}),
             "logs": self.logs
         }
@@ -345,6 +364,22 @@ class RepositoryAnalyzer:
         
         self.overall_score = max(0, self.overall_score - security_penalty)
         
+        # 5. Complexity Penalties
+        complexity_penalty = 0
+        avg_comp = self.complexity_results.get("average_complexity", 0)
+        if avg_comp > 15: complexity_penalty += 15
+        elif avg_comp > 8: complexity_penalty += 5
+        
+        self.overall_score = max(0, self.overall_score - complexity_penalty)
+
+        # 6. Duplication Penalties
+        dup_penalty = 0
+        dup_ratio = self.duplication_results.get("duplication_ratio", 0)
+        if dup_ratio > 15: dup_penalty += 15
+        elif dup_ratio > 5: dup_penalty += 5
+        
+        self.overall_score = max(0, self.overall_score - dup_penalty)
+
         # Assign Maturity Label
         if self.overall_score <= 40:
             self.maturity_label = "Basic"
@@ -359,7 +394,9 @@ class RepositoryAnalyzer:
              "infrastructure": infra_score,
              "standards_tests": standards_score,
              "architecture": int(arch_score),
-             "security": -security_penalty
+             "security": -security_penalty,
+             "complexity": -complexity_penalty,
+             "duplication": -dup_penalty
         }
 
     def _run_layer4_actionable_roadmap(self):
@@ -692,3 +729,183 @@ class RepositoryAnalyzer:
                                     "description": "Apache config missing HSTS. Use 'Header set Strict-Transport-Security' to fix."
                                 })
                     except: pass
+
+    def _run_layer9_complexity_analysis(self):
+        """Layer 9: Deterministic Cyclomatic Complexity using AST."""
+        complexity_reports = []
+        total_complexity = 0
+        function_count = 0
+        
+        for root, _, files in os.walk(self.repo_path):
+            if any(x in root for x in [".git", "node_modules", "__pycache__", "venv"]):
+                continue
+            for file in files:
+                if file.endswith(".py"):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, "r", errors="ignore") as f:
+                            code = f.read()
+                            tree = ast.parse(code)
+                            
+                            for node in ast.walk(tree):
+                                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                                    # Calculate complexity for this function
+                                    # Base complexity is 1
+                                    complexity = 1
+                                    for child in ast.walk(node):
+                                        if isinstance(child, (ast.If, ast.For, ast.While, ast.ExceptHandler, ast.With, ast.And, ast.Or, ast.Assert)):
+                                            complexity += 1
+                                    
+                                    function_count += 1
+                                    total_complexity += complexity
+                                    
+                                    if complexity > 10: # Threshold for high complexity
+                                        complexity_reports.append({
+                                            "file": os.path.relpath(file_path, self.repo_path),
+                                            "function": node.name,
+                                            "complexity": complexity,
+                                            "severity": "HIGH" if complexity > 20 else "MEDIUM"
+                                        })
+                    except: pass
+        
+        self.complexity_results = {
+            "critical_functions": complexity_reports[:10], # Cap for UI
+            "average_complexity": round(total_complexity / function_count, 2) if function_count > 0 else 0,
+            "total_functions_scanned": function_count
+        }
+        
+        # Add to technical debt if average is high
+        if self.complexity_results["average_complexity"] > 10:
+            self.structured_critique["technical_debt"].append({
+                "area": "Code Quality",
+                "issue": f"High Complexity (Avg: {self.complexity_results['average_complexity']})",
+                "impact": "Codebase contains excessive branching logic, making it fragile and hard to test."
+            })
+
+    def _run_layer10_duplication_scan(self):
+        """Layer 10: Identify copy-pasted code blocks using structural hashing."""
+        hashes = {} # hash -> list of (file, start_line)
+        duplications = []
+        total_lines = 0
+        duplicated_lines_count = 0
+        
+        chunk_size = 6 # Minimum lines to consider a duplicate
+        
+        for root, _, files in os.walk(self.repo_path):
+            if any(x in root for x in [".git", "node_modules", "__pycache__", "venv"]):
+                continue
+            for file in files:
+                if file.endswith((".py", ".js", ".ts", ".go", ".java")):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, 'r', errors='ignore') as f:
+                            # Simple normalization: strip whitespace and ignore comments
+                            lines = [line.strip() for line in f.readlines() if line.strip() and not line.strip().startswith(("#", "//", "/*", "*"))]
+                            total_lines += len(lines)
+                            
+                            for i in range(len(lines) - chunk_size + 1):
+                                chunk = "".join(lines[i:i + chunk_size])
+                                h = hashlib.md5(chunk.encode()).hexdigest()
+                                
+                                loc = (os.path.relpath(file_path, self.repo_path), i + 1)
+                                if h in hashes:
+                                    hashes[h].append(loc)
+                                else:
+                                    hashes[h] = [loc]
+                    except: pass
+        
+        # Identify duplicates
+        for h, locs in hashes.items():
+            if len(locs) > 1:
+                # This is a duplicated block
+                primary = locs[0]
+                others = locs[1:]
+                duplicated_lines_count += chunk_size * len(others)
+                
+                if len(duplications) < 5: # Top 5 clusters
+                     duplications.append({
+                         "primary_location": f"{primary[0]}:L{primary[1]}",
+                         "occurrences": len(locs),
+                         "clones": [f"{l[0]}:L{l[1]}" for l in locs[1:4]] # Show first few clones
+                     })
+        
+        duplication_ratio = round((duplicated_lines_count / total_lines) * 100, 2) if total_lines > 0 else 0
+        
+        self.duplication_results = {
+            "duplication_ratio": duplication_ratio,
+            "top_clusters": duplications,
+            "total_lines_scanned": total_lines
+        }
+        
+        # Update technical debt
+        if duplication_ratio > 10:
+            self.structured_critique["technical_debt"].append({
+                "area": "DRY Compliance",
+                "issue": f"Code Fragmentation ({duplication_ratio}%)",
+                "impact": "Logic is duplicated across files, causing 'Shotgun Surgery' anti-pattern during maintenance."
+            })
+
+    def _run_layer11_secops_audit(self):
+        """Layer 11: Enterprise SecOps audit (SSL, DNS, and Domain Health)."""
+        domain_findings = []
+        domains_scanned = set()
+        
+        # 1. Scavenge for domains in config files and env
+        # Simplified regex for domain detection
+        domain_pattern = r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,6}"
+        exempt_domains = ["github.com", "pypi.org", "npmjs.com", "localhost", "127.0.0.1", "google.com", "microsoft.com", "apple.com"]
+        
+        for root, _, files in os.walk(self.repo_path):
+            if any(x in root for x in [".git", "node_modules"]): continue
+            for file in files:
+                if file.endswith((".py", ".env", ".conf", ".yml", ".json")):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, 'r', errors='ignore') as f:
+                            content = f.read(10000)
+                            matches = re.findall(domain_pattern, content)
+                            for domain in matches:
+                                if domain not in domains_scanned and not any(ex in domain for ex in exempt_domains):
+                                    domains_scanned.add(domain)
+                    except: pass
+        
+        # 2. Heuristic Audit of Scavenged Domains
+        for domain in list(domains_scanned)[:3]: # Limit for performance/safety
+            try:
+                context = ssl.create_default_context()
+                with socket.create_connection((domain, 443), timeout=2) as sock:
+                    with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                        cert = ssock.getpeercert()
+                        if cert:
+                            # Check expiry
+                            not_after_str = cert.get('notAfter')
+                            if not_after_str:
+                                expires = datetime.datetime.strptime(not_after_str, '%b %d %H:%M:%S %Y %Z')
+                                days_left = (expires - datetime.datetime.utcnow()).days
+                                
+                                if days_left < 30:
+                                    self.security_findings.append({
+                                        "type": "SecOps Risk", "severity": "HIGH", "label": "SSL Certificate Expiring",
+                                        "file": "Network Audit",
+                                        "description": f"Certificate for {domain} expires in {days_left} days."
+                                    })
+                                
+                                domain_findings.append({
+                                    "domain": domain,
+                                    "status": "Healthy",
+                                    "ssl_expiry": not_after_str,
+                                    "days_remaining": days_left
+                                })
+            except Exception as e:
+                # Could be a private domain or offline
+                domain_findings.append({
+                    "domain": domain,
+                    "status": "Unreachable/Private",
+                    "error": "Could not establish SSL handshake"
+                })
+
+        self.secops_results = {
+            "monitored_domains": domain_findings,
+            "dns_health": "Heuristic Audit Passive",
+            "tls_compliance": "Verified" if domain_findings else "N/A"
+        }
