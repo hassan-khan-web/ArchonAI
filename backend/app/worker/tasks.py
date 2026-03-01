@@ -7,6 +7,7 @@ from app.core.celery_app import celery_app
 from app.models.repository import Repository, RepositoryStatus
 from app.db.session import AsyncSessionLocal, engine
 from app.core.analyzer import RepositoryAnalyzer
+from celery.exceptions import SoftTimeLimitExceeded
 
 @worker_process_init.connect
 def init_worker(**kwargs):
@@ -107,9 +108,18 @@ def clone_repository(repo_id, url, github_token=None):
         ))
         return f"Successfully analyzed {url}. Score: {analysis_results.get('overall_score')}"
 
+    except SoftTimeLimitExceeded:
+        print(f"Soft time limit exceeded for repository {url}")
+        asyncio.run(update_status(
+            repo_id, 
+            RepositoryStatus.FAILED, 
+            log_message="System: Analysis timeout. Project is too large or complex for the current processing window."
+        ))
+        return f"Timeout analyzing {url}"
+
     except Exception as e:
         print(f"Error cloning repository {url}: {e}")
-        asyncio.run(update_status(repo_id, RepositoryStatus.FAILED))
+        asyncio.run(update_status(repo_id, RepositoryStatus.FAILED, log_message=f"System Error: {str(e)}"))
         return f"Failed to clone: {e}"
 
 @celery_app.task

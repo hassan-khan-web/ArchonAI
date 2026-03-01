@@ -33,7 +33,9 @@ import {
   Github,
   HardDrive,
   GitCommit,
-  AlertTriangle
+  AlertTriangle,
+  FileText,
+  Download
 } from "lucide-react";
 
 // --- Types ---
@@ -616,16 +618,36 @@ export default function Dashboard() {
                                   <p className="text-[8px] text-slate-600 font-mono tracking-widest">{selectedRepo.id}</p>
                                 </div>
                               </div>
-                              <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
-                                {(["review", "tech", "debt", "insights", "graph"] as const).map(t => (
+                              <div className="flex items-center gap-3">
+                                <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 mr-2">
+                                  {(["review", "tech", "debt", "insights", "graph"] as const).map(t => (
+                                    <button
+                                      key={t}
+                                      onClick={() => setActiveTab(t)}
+                                      className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === t ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/40" : "text-slate-500 hover:text-slate-300"}`}
+                                    >
+                                      {t}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="flex gap-2">
                                   <button
-                                    key={t}
-                                    onClick={() => setActiveTab(t)}
-                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === t ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/40" : "text-slate-500 hover:text-slate-300"}`}
+                                    onClick={() => window.open(`${apiUrl}/api/v1/reports/${selectedRepo.id}/pdf`, "_blank")}
+                                    className="h-8 px-3 bg-white/5 border border-white/10 rounded-lg flex items-center gap-2 hover:bg-emerald-600/20 hover:border-emerald-500/30 transition-all group"
+                                    title="Download PDF Audit"
                                   >
-                                    {t}
+                                    <FileText size={14} className="text-emerald-400 group-hover:text-white" />
+                                    <span className="text-[10px] font-black text-slate-400 group-hover:text-white uppercase">PDF</span>
                                   </button>
-                                ))}
+                                  <button
+                                    onClick={() => window.open(`${apiUrl}/api/v1/reports/${selectedRepo.id}/markdown`, "_blank")}
+                                    className="h-8 px-3 bg-white/5 border border-white/10 rounded-lg flex items-center gap-2 hover:bg-emerald-600/20 hover:border-emerald-500/30 transition-all group"
+                                    title="Download Markdown Report"
+                                  >
+                                    <Download size={14} className="text-teal-400 group-hover:text-white" />
+                                    <span className="text-[10px] font-black text-slate-400 group-hover:text-white uppercase">MD</span>
+                                  </button>
+                                </div>
                               </div>
                             </div>
 

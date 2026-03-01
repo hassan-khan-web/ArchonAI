@@ -19,4 +19,6 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    task_time_limit=300,        # 5 minutes (hard limit)
+    task_soft_time_limit=240,   # 4 minutes (soft limit)
 )
