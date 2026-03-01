@@ -104,6 +104,16 @@ interface Repository {
       nodes: { id: number; name: string; path: string; type: string }[];
       links: { source: number; target: number }[];
     };
+    tech_recommendations?: {
+      framework_recommendations?: any;
+      database_recommendations?: any;
+      caching_recommendations?: any;
+      queue_recommendations?: any;
+      monitoring_recommendations?: any;
+      ml_recommendations?: any;
+      observability_stack?: any;
+      error?: string;
+    };
   };
   overall_score: number;
   created_at: string;
@@ -126,7 +136,7 @@ export default function Dashboard() {
   const [githubRepos, setGithubRepos] = useState<any[]>([]);
   const [isGithubLoading, setIsGithubLoading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [activeTab, setActiveTab] = useState<"review" | "tech" | "debt" | "graph">("review");
+  const [activeTab, setActiveTab] = useState<"review" | "tech" | "debt" | "graph" | "insights">("review");
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [githubToken, setGithubToken] = useState<string | null>(null);
   const [isOAuthLoading, setIsOAuthLoading] = useState(false);
@@ -607,7 +617,7 @@ export default function Dashboard() {
                                 </div>
                               </div>
                               <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
-                                {(["review", "tech", "debt", "graph"] as const).map(t => (
+                                {(["review", "tech", "debt", "insights", "graph"] as const).map(t => (
                                   <button
                                     key={t}
                                     onClick={() => setActiveTab(t)}
@@ -807,6 +817,174 @@ export default function Dashboard() {
                                             </div>
                                           ))}
                                         </div>
+                                      </div>
+                                    )}
+                                  </motion.div>
+                                )}
+
+                                {activeTab === "insights" && (
+                                  <motion.div
+                                    key="insights"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="space-y-8 max-h-full overflow-y-auto"
+                                  >
+                                    {selectedRepo.analysis_results?.tech_recommendations && selectedRepo.analysis_results.tech_recommendations.error ? (
+                                      <div className="p-6 rounded-[2rem] bg-red-500/10 border border-red-500/30 space-y-3">
+                                        <h4 className="text-sm font-black uppercase tracking-widest text-red-400 flex items-center gap-2">
+                                          <AlertTriangle size={16} /> Recommendations Error
+                                        </h4>
+                                        <p className="text-sm text-red-200/80">{selectedRepo.analysis_results.tech_recommendations.error}</p>
+                                      </div>
+                                    ) : selectedRepo.analysis_results?.tech_recommendations ? (
+                                      <>
+                                        {/* Framework Recommendations */}
+                                        {(selectedRepo.analysis_results.tech_recommendations as any)?.framework_recommendations?.recommendations && (
+                                          <div className="p-6 rounded-[2rem] bg-purple-500/5 border border-purple-500/20 space-y-4">
+                                            <h4 className="text-sm font-black uppercase tracking-widest text-purple-400 flex items-center gap-2">
+                                              <Zap size={16} /> Framework Optimization
+                                            </h4>
+                                            <div className="space-y-3">
+                                              {(selectedRepo.analysis_results.tech_recommendations as any).framework_recommendations.recommendations.map((rec: any, idx: number) => (
+                                                <div key={idx} className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/10 space-y-2">
+                                                  <div className="flex items-start justify-between">
+                                                    <h5 className="font-black text-white uppercase tracking-tight text-base">{rec.title}</h5>
+                                                    <span className="text-sm text-purple-400 font-black bg-purple-500/20 px-2 py-1 rounded-full">{rec.current}</span>
+                                                  </div>
+                                                  <p className="text-sm text-slate-300 leading-relaxed">{rec.recommendation}</p>
+                                                  {rec.reason && <p className="text-sm text-purple-200 italic">💡 {rec.reason}</p>}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* Database Recommendations */}
+                                        {(selectedRepo.analysis_results.tech_recommendations as any)?.database_recommendations && (
+                                          <div className="p-6 rounded-[2rem] bg-cyan-500/5 border border-cyan-500/20 space-y-4">
+                                            <h4 className="text-sm font-black uppercase tracking-widest text-cyan-400 flex items-center gap-2">
+                                              <Database size={16} /> Database Strategy
+                                            </h4>
+                                            {(selectedRepo.analysis_results.tech_recommendations as any).database_recommendations.status ? (
+                                              <p className="text-base text-cyan-200 italic">{(selectedRepo.analysis_results.tech_recommendations as any).database_recommendations.status}</p>
+                                            ) : (
+                                              <div className="space-y-3">
+                                                {(selectedRepo.analysis_results.tech_recommendations as any).database_recommendations.recommendations?.map((rec: any, idx: number) => (
+                                                  <div key={idx} className="p-4 rounded-xl bg-cyan-500/5 border border-cyan-500/10 space-y-2">
+                                                    <h5 className="font-black text-white uppercase tracking-tight text-base">{rec.title}</h5>
+                                                    <p className="text-sm text-slate-300 leading-relaxed">{rec.recommendation}</p>
+                                                    {rec.migration_path && <p className="text-sm text-cyan-200">📋 {rec.migration_path}</p>}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {/* Caching Recommendations */}
+                                        {(selectedRepo.analysis_results.tech_recommendations as any)?.caching_recommendations?.recommendations && (
+                                          <div className="p-6 rounded-[2rem] bg-orange-500/5 border border-orange-500/20 space-y-4">
+                                            <h4 className="text-sm font-black uppercase tracking-widest text-orange-400 flex items-center gap-2">
+                                              <Zap size={16} /> Caching & Performance
+                                            </h4>
+                                            <div className="space-y-3">
+                                              {(selectedRepo.analysis_results.tech_recommendations as any).caching_recommendations.recommendations.map((rec: any, idx: number) => (
+                                                <div key={idx} className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/10 space-y-2">
+                                                  <h5 className="font-black text-white uppercase tracking-tight text-base">{rec.title}</h5>
+                                                  <p className="text-sm text-slate-300 leading-relaxed">{rec.recommendation}</p>
+                                                  {rec.expected_impact && <p className="text-sm text-orange-200 font-bold">⚡ Impact: {rec.expected_impact}</p>}
+                                                  {rec.tools && <p className="text-sm text-orange-200">🔧 Tools: {rec.tools}</p>}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* Queue Recommendations */}
+                                        {(selectedRepo.analysis_results.tech_recommendations as any)?.queue_recommendations && (
+                                          <div className="p-6 rounded-[2rem] bg-pink-500/5 border border-pink-500/20 space-y-4">
+                                            <h4 className="text-sm font-black uppercase tracking-widest text-pink-400 flex items-center gap-2">
+                                              <Terminal size={16} /> Background Jobs & Queues
+                                            </h4>
+                                            {(selectedRepo.analysis_results.tech_recommendations as any).queue_recommendations.status ? (
+                                              <p className="text-base text-pink-200 italic">{(selectedRepo.analysis_results.tech_recommendations as any).queue_recommendations.status}</p>
+                                            ) : (
+                                              <div className="space-y-3">
+                                                {(selectedRepo.analysis_results.tech_recommendations as any).queue_recommendations.recommendations?.map((rec: any, idx: number) => (
+                                                  <div key={idx} className="p-4 rounded-xl bg-pink-500/5 border border-pink-500/10 space-y-2">
+                                                    <h5 className="font-black text-white uppercase tracking-tight text-base">{rec.title}</h5>
+                                                    <p className="text-sm text-slate-300 leading-relaxed">{rec.recommendation}</p>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {/* Monitoring Recommendations */}
+                                        {(selectedRepo.analysis_results.tech_recommendations as any)?.monitoring_recommendations?.recommendations && (
+                                          <div className="p-6 rounded-[2rem] bg-blue-500/5 border border-blue-500/20 space-y-4">
+                                            <h4 className="text-sm font-black uppercase tracking-widest text-blue-400 flex items-center gap-2">
+                                              <Activity size={16} /> Monitoring & Observability
+                                            </h4>
+                                            <div className="space-y-3">
+                                              {(selectedRepo.analysis_results.tech_recommendations as any).monitoring_recommendations.recommendations.map((rec: any, idx: number) => (
+                                                <div key={idx} className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/10 space-y-2">
+                                                  <h5 className="font-black text-white uppercase tracking-tight text-base">{rec.title}</h5>
+                                                  <p className="text-sm text-slate-300 leading-relaxed">{rec.recommendation}</p>
+                                                  {rec.setup && <p className="text-sm text-blue-200">📊 Setup: {rec.setup}</p>}
+                                                  {rec.metrics_to_track && (
+                                                    <div className="text-sm text-blue-200">
+                                                      📈 Track: {rec.metrics_to_track.slice(0, 2).join(", ")}...
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* ML Recommendations */}
+                                        {(selectedRepo.analysis_results.tech_recommendations as any)?.ml_recommendations?.ml_stack && (
+                                          <div className="p-6 rounded-[2rem] bg-rose-500/5 border border-rose-500/20 space-y-4">
+                                            <h4 className="text-sm font-black uppercase tracking-widest text-rose-400 flex items-center gap-2">
+                                              <Sparkles size={16} /> ML Tooling Strategy
+                                            </h4>
+                                            <div className="space-y-3">
+                                              {(selectedRepo.analysis_results.tech_recommendations as any).ml_recommendations.ml_stack.map((rec: any, idx: number) => (
+                                                <div key={idx} className="p-4 rounded-xl bg-rose-500/5 border border-rose-500/10 space-y-2">
+                                                  <h5 className="font-black text-white uppercase tracking-tight text-base">{rec.title}</h5>
+                                                  <p className="text-sm text-slate-300 leading-relaxed">{rec.recommendation}</p>
+                                                  {rec.why && <p className="text-sm text-rose-200 font-bold">→ {rec.why}</p>}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        {/* Observability Stack Summary */}
+                                        {(selectedRepo.analysis_results.tech_recommendations as any)?.observability_stack && (
+                                          <div className="p-6 rounded-[2rem] bg-teal-500/5 border border-teal-500/20 space-y-4">
+                                            <h4 className="text-sm font-black uppercase tracking-widest text-teal-400 flex items-center gap-2">
+                                              <Container size={16} /> Complete Observability Stack
+                                            </h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                              {Object.entries((selectedRepo.analysis_results.tech_recommendations as any).observability_stack).map(([category, details]: [string, any]) => (
+                                                <div key={category} className="p-3 rounded-lg bg-teal-500/5 border border-teal-500/10">
+                                                  <h5 className="font-black text-teal-300 uppercase tracking-tight text-sm mb-2">{category}</h5>
+                                                  <p className="text-sm text-slate-300">{details.recommendation}</p>
+                                                  {details.purpose && <p className="text-sm text-teal-200 mt-1 italic">{details.purpose}</p>}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <div className="p-8 rounded-[2rem] bg-slate-800/30 border border-white/10 text-center space-y-3">
+                                        <Sparkles className="mx-auto text-slate-600" size={32} />
+                                        <p className="text-slate-400 font-medium">No recommendations available yet</p>
                                       </div>
                                     )}
                                   </motion.div>
