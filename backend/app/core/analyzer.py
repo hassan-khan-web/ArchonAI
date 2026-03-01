@@ -7,6 +7,7 @@ import ssl
 import datetime
 from typing import Dict, Any, List, Set, Optional, Callable
 from app.core.brain import ArchonBrain
+from app.core.recommender import TechStackRecommender
 
 class RepositoryAnalyzer:
     def __init__(self, repo_path: str, on_progress: Optional[Callable[[str], None]] = None):
@@ -32,6 +33,7 @@ class RepositoryAnalyzer:
         self.complexity_results: Dict[str, Any] = {}
         self.duplication_results: Dict[str, Any] = {}
         self.secops_results: Dict[str, Any] = {}
+        self.tech_recommendations: Dict[str, Any] = {}
 
     def _log(self, message: str):
         self.logs.append(message)
@@ -73,6 +75,9 @@ class RepositoryAnalyzer:
 
         self._calculate_final_score() # Calculate BEFORE AI analysis so we can pass it to the brain
         
+        self._log("Phase Nu: Generating Tech Stack Recommendations...")
+        self._run_layer4b_tech_recommendations()
+        
         self._log("Phase Zeta: Running Deep Semantic Audit (AI Architect)...")
         await self._run_layer6_semantic_analysis()
         
@@ -93,6 +98,7 @@ class RepositoryAnalyzer:
             "complexity": self.complexity_results,
             "duplication": self.duplication_results,
             "secops": self.secops_results,
+            "tech_recommendations": self.tech_recommendations,
             "dependency_graph": getattr(self, "dependency_graph", {"nodes": [], "links": []}),
             "logs": self.logs
         }
@@ -555,6 +561,21 @@ class RepositoryAnalyzer:
                 except Exception:
                     pass
 
+    def _run_layer4b_tech_recommendations(self):
+        """Layer 4B: Generate intelligent tech stack recommendations."""
+        try:
+            recommender = TechStackRecommender(
+                static_findings=self.static_findings,
+                structural_findings=self.structural_findings,
+                score=self.overall_score,
+                security_findings=self.security_findings
+            )
+            self.tech_recommendations = recommender.generate_recommendations()
+            self._log("Tech Stack Recommendations generated.")
+        except Exception as e:
+            self._log(f"Warning: Tech recommendations failed: {str(e)}")
+            self.tech_recommendations = {"error": str(e)}
+
     async def _run_layer6_semantic_analysis(self):
         """Layer 6: Deep Semantic Analysis using Groq LLM."""
         if not self.brain.client:
@@ -626,7 +647,12 @@ class RepositoryAnalyzer:
              context_text = context_text[:max_chars] + "\n... [TRUNCATED] ..."
 
         try:
-            self.ai_analysis = await self.brain.analyze_repository(context_text, self.repo_path.split("/")[-1], scores=scores_for_ai)
+            self.ai_analysis = await self.brain.analyze_repository(
+                context_text, 
+                self.repo_path.split("/")[-1], 
+                scores=scores_for_ai,
+                tech_recommendations=self.tech_recommendations
+            )
         except Exception as e:
             self.ai_analysis = {"error": f"Internal Analysis Error: {str(e)}"}
 

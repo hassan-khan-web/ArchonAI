@@ -15,19 +15,33 @@ class ArchonBrain:
             self.client = None
             print("Warning: GROQ_API_KEY not found. Semantic Audit will be disabled.")
 
-    async def analyze_repository(self, context_summary: str, repo_id: str, scores: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def analyze_repository(self, context_summary: str, repo_id: str, scores: Dict[str, Any] = None, tech_recommendations: Dict[str, Any] = None) -> Dict[str, Any]:
         """Orchestrate LLM analysis for a repository."""
         if not self.client:
             return {"error": "Groq client not initialized (API Key missing)."}
 
         overall_score = scores.get("overall_score", "Unknown") if scores else "Unknown"
         score_breakdown = scores.get("score_breakdown", {}) if scores else {}
+        
+        # Format tech recommendations for the prompt
+        tech_rec_text = ""
+        if tech_recommendations:
+            tech_rec_text = "\n\nTECH STACK RECOMMENDATIONS (Pre-analyzed):\n"
+            for key, value in tech_recommendations.items():
+                if value and not isinstance(value, dict):
+                    tech_rec_text += f"- {key}: {value}\n"
+                elif isinstance(value, dict) and "recommendations" in value:
+                    tech_rec_text += f"\n{key.replace('_', ' ').title()}:\n"
+                    for rec in value.get("recommendations", []):
+                        if isinstance(rec, dict):
+                            tech_rec_text += f"  • {rec.get('title', 'Recommendation')}: {rec.get('recommendation', '')}\n"
 
         prompt = f"""
 You are "The Senior Global Architect" at ArchonAI. Your mission is to provide an exhaustive, high-density technical audit from A to Z. 
 
 PROJECT CONTEXT:
 {context_summary}
+{tech_rec_text}
 
 AUDIT METRICS:
 Overall Score: {overall_score}/100
@@ -38,9 +52,9 @@ INSTRUCTIONS:
    - Paragraph 1: Detailed audit of the current state of the codebase. Covering everything from structure to parity.
    - Paragraph 2: SCORE JUSTIFICATION. Explain specifically why the score of {overall_score} was assigned. Reference the strengths and the specific penalties that influenced it.
    - Paragraph 3: Strategic vision and production readiness assessment.
-2. ENGINEERING ROADMAP: Provide a list of exactly 4 detailed engineering evolution steps. Each step must be a full paragraph (4-5 sentences) describing what technical updates are required and exactly what tools/libraries the developer should use to implement them.
-3. SUGGESTED ACTION: One major transformative shift presented as a logical, detailed recommendation paragraph. This is a core architectural advice for the user.
-4. TECH STACK NOTES: For the detected tech stack, provide a brief (1-2 sentences) note for EACH specific tool/library, explaining exactly where and how it is being utilized in this specific project.
+2. ENGINEERING ROADMAP: Provide a list of exactly 4 detailed engineering evolution steps. INCORPORATE the provided tech stack recommendations where applicable. Each step must be a full paragraph (4-5 sentences) describing what technical updates are required and exactly what tools/libraries the developer should use to implement them. Include specific technologies for: databases, caching systems, queues, monitoring/observability stacks, and frameworks.
+3. SUGGESTED ACTION: One major transformative shift presented as a logical, detailed recommendation paragraph. This is a core architectural advice for the user. Prioritize the most impactful recommendation from the tech stack recommendations if applicable.
+4. TECH STACK NOTES: For the detected tech stack, provide a brief (1-2 sentences) note for EACH specific tool/library, explaining exactly where and how it is being utilized in this specific project. Also include notes for RECOMMENDED new tools if they should be adopted.
 5. NEURAL DEBT AUDIT: Identify exactly 4 critical debt items. For each, provide an exhaustive paragraph that covers the Area, the precise technical Issue, and the long-term Business Impact. Do not truncate; be detailed.
 6. ARCHITECTURAL GRAPH EVALUATION: Provide a single paragraph evaluating the dependency relationships and modularity of the graph. This will be displayed below the graph visualization.
 7. NO SNIPPETS: Use plain, professional English. No code blocks or snippets in textual fields.
@@ -50,14 +64,14 @@ OUTPUT FORMAT (JSON):
     "executive_summary": ["Paragraph 1...", "Paragraph 2...", "Paragraph 3..."],
     "score_justification": "Detailed explanation...",
     "engineering_roadmap": [
-        {{"title": "...", "detail": "Full paragraph..."}}
+        {{"title": "...", "detail": "Full paragraph with specific tools/libraries..."}}
     ],
     "suggested_action": {{
         "title": "...",
         "paragraph": "..."
     }},
     "tech_stack_notes": {{
-        "ToolName": "Brief note on location/usage..."
+        "ToolName": "Brief note on location/usage or recommended adoption..."
     }},
     "technical_debt": [
         {{"title": "...", "paragraph": "Exhaustive paragraph..."}}

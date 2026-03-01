@@ -84,15 +84,34 @@ Grading is transparent and based on weighted scoring across:
 ## 🧩 Tech Stack Recommendation Engine
 
 Based on project fingerprint + current maturity + target grade, ArchonAI:
-- Identifies architectural bottlenecks
-- Detects scalability risks
-- Suggests optimized backend frameworks
-- Recommends appropriate databases
-- Suggests caching & queue systems
-- Advises monitoring & observability stack
-- Proposes ML tooling (if applicable)
 
-All recommendations are justified with contextual reasoning.
+**Framework Analysis:**
+- Identifies architectural bottlenecks
+- Suggests optimized backend frameworks (FastAPI, NestJS, etc.)
+- Recommends framework migration paths when beneficial
+
+**Database & Storage:**
+- Detects scalability risks in current database choices
+- Recommends PostgreSQL for production OLTP workloads
+- Suggests OLAP solutions (ClickHouse, Snowflake) for analytics
+- Proposes read replicas and sharding strategies
+
+**Performance Optimization:**
+- Suggests caching systems (Redis multi-layer caching, CDN strategies)
+- Recommends async job queues (Celery, Bull, AWS SQS)
+- Advises on event streaming (Kafka) for high-volume event processing
+
+**Observability & Reliability:**
+- Recommends monitoring & observability stack (Prometheus + Grafana, Datadog, New Relic)
+- Suggests distributed tracing solutions (Jaeger)
+- Advises on alerting and on-call escalation patterns
+
+**ML Tooling (if applicable):**
+- Proposes experiment tracking (MLflow, W&B)
+- Recommends feature stores (Feast, Tecton)
+- Suggests model serving solutions (BentoML, Ray Serve)
+
+All recommendations are intelligently justified with contextual reasoning, score breakdowns, and implementation roadmaps.
 
 ## 🛠 Upgrade Roadmap Generator
 
@@ -145,16 +164,18 @@ Weights dynamically adapt based on project type (e.g., ML, API, real-time system
 - Engineering teams reviewing architecture quality
 
 ## 🛣 Roadmap (High-Level)
-- [ ] GitHub OAuth integration
-- [ ] Repo ingestion & fingerprint generation
-- [ ] Deterministic rule engine
-- [ ] Static metrics engine
-- [ ] LLM architectural evaluation layer
-- [ ] Hybrid score aggregation
-- [ ] Tech stack recommendation engine
-- [ ] Structured roadmap generator
-- [ ] Dashboard visualization
+- [x] GitHub OAuth integration
+- [x] Repo ingestion & fingerprint generation
+- [x] Deterministic rule engine
+- [x] Static metrics engine
+- [x] LLM architectural evaluation layer
+- [x] Hybrid score aggregation
+- [x] Tech stack recommendation engine (NEW: Layer 4B)
+- [x] Structured roadmap generator (AI-driven with tech recommendations)
+- [x] Dashboard visualization
 - [ ] PDF report export
+- [ ] Advanced caching & performance profiling
+- [ ] Custom audit rules & governance policies
 
 ## 🧑‍💻 Tech Stack (Platform)
 
