@@ -830,12 +830,30 @@ export default function Dashboard() {
                                     exit={{ opacity: 0, y: -10 }}
                                     className="space-y-8 max-h-full overflow-y-auto"
                                   >
-                                    {selectedRepo.analysis_results?.tech_recommendations && selectedRepo.analysis_results.tech_recommendations.error ? (
+                                    {selectedRepo.analysis_results?.ai_analysis && !selectedRepo.analysis_results.ai_analysis.error && Array.isArray((selectedRepo.analysis_results.ai_analysis as any).engineering_roadmap) && (selectedRepo.analysis_results.ai_analysis as any).engineering_roadmap.length > 0 ? (
+                                      <>
+                                        <div className="p-6 rounded-[2rem] bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20 space-y-4">
+                                          <h4 className="text-sm font-black uppercase tracking-widest text-purple-400 flex items-center gap-2">
+                                            <Sparkles size={16} /> AI-Generated Tech Stack Roadmap
+                                          </h4>
+                                          <p className="text-sm text-slate-300 leading-relaxed">Strategic engineering recommendations grounded in architectural analysis:</p>
+                                        </div>
+                                        {((selectedRepo.analysis_results.ai_analysis as any).engineering_roadmap as any[]).map((item: any, idx: number) => (
+                                          <div key={idx} className="p-6 rounded-[2rem] bg-slate-700/20 border border-slate-500/20 space-y-3">
+                                            <h4 className="text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
+                                              <Layers size={16} className="text-purple-400" />
+                                              Step {idx + 1}: {item.title}
+                                            </h4>
+                                            <p className="text-sm text-slate-300 leading-relaxed text-justify">{item.detail}</p>
+                                          </div>
+                                        ))}
+                                      </>
+                                    ) : selectedRepo.analysis_results?.ai_analysis?.error ? (
                                       <div className="p-6 rounded-[2rem] bg-red-500/10 border border-red-500/30 space-y-3">
                                         <h4 className="text-sm font-black uppercase tracking-widest text-red-400 flex items-center gap-2">
-                                          <AlertTriangle size={16} /> Recommendations Error
+                                          <AlertTriangle size={16} /> AI Analysis Error
                                         </h4>
-                                        <p className="text-sm text-red-200/80">{selectedRepo.analysis_results.tech_recommendations.error}</p>
+                                        <p className="text-sm text-red-200/80">{selectedRepo.analysis_results.ai_analysis.error}</p>
                                       </div>
                                     ) : selectedRepo.analysis_results?.tech_recommendations ? (
                                       <>
